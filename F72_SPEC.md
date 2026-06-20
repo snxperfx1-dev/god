@@ -115,6 +115,16 @@ Phases describe state. State belongs to CurveNode.
 parent, energy, residual energy, convexity, compression, displacement, ownership,
 maturity, interfaces, phase, flip zone, state. Everything else derives.
 
+**16 — Compression Persistence (Force).** After a structure break + pullback, the
+question is not "how deep will it retrace?" but **"can the counter side even build
+room?"** Tight compression + concentrated residual energy + few recursions ⇒ the
+opposite side suffocates, the **extreme becomes irrelevant**, and support/resistance
+**migrates to the 0.5–0.618 band** of the expansion leg (continuation; shallow
+pullbacks; no extreme retest). Broad compression + widening convexity + growing
+recursion ⇒ energy leaks, the **origin stays in play**, return-to-extreme risk rises
+and ownership is about to transfer. It is not momentum — it is how much breathing
+room the opposite side is being allowed, measured recursively at every scale.
+
 ---
 
 ## ENGINE LAYERS

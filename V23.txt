@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v33", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v34", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1517,6 +1517,18 @@ float _ownNrgT   = _ownF >= 0 ? array.get(_tree, _ownF).energy : 0.0
 string _ownState = _ownF >= 0 ? array.get(_tree, _ownF).state : "—"
 float  _ownOrig  = _ownF >= 0 ? array.get(_tree, _ownF).origin  : na
 float  _ownExt   = _ownF >= 0 ? array.get(_tree, _ownF).extreme : na
+// ── F72 Principle 10 — COMPRESSION PERSISTENCE ───────────────────────────────
+//   After a break + pullback, the question is NOT "how deep will it retrace?" but
+//   "can the COUNTER side even generate room to build?". Tight compression + energy
+//   still concentrated + few recursions ⇒ the opposite side suffocates, the extreme
+//   becomes irrelevant, and support/resistance MIGRATES to the 0.5–0.618 band of the
+//   expansion leg. Broad compression + growing recursion ⇒ energy leaks, the origin
+//   stays in play, return-to-extreme risk rises (ownership about to transfer).
+float _cpForce = math.max(0.0, math.min(100.0, nz(gCurve.compress, 0.0) * 0.55 + nz(gCurve.eRes, 0.0) * 0.25 - _treeDepth * 12.0 + 8.0))
+string _cpState = _cpForce >= 60.0 ? "PERSISTING" : _cpForce <= 35.0 ? "LEAKING" : "NEUTRAL"
+// migrated ownership band — 0.5 / 0.618 retracement of the owner curve's leg
+float _mig50  = (na(_ownOrig) or na(_ownExt)) ? na : _ownExt + 0.5   * (_ownOrig - _ownExt)
+float _mig618 = (na(_ownOrig) or na(_ownExt)) ? na : _ownExt + 0.618 * (_ownOrig - _ownExt)
 
 // ── Drawing objects + hoisted state for global alerts ────────────────────────
 var array<line>  net_lines = array.new<line>()
@@ -2255,7 +2267,7 @@ if barstate.islast and showCurve
 if barstate.islast and showCurve
     var table treeT = na
     if na(treeT)
-        treeT := table.new(position.middle_center, 2, 7, bgcolor = color.new(#0a0e27, 4), frame_color = color.new(#22d3ee, 25), frame_width = 2, border_width = 0)
+        treeT := table.new(position.middle_center, 2, 9, bgcolor = color.new(#0a0e27, 4), frame_color = color.new(#22d3ee, 25), frame_width = 2, border_width = 0)
     string _odTx = _ownDirT == 1 ? "▲ BULL" : _ownDirT == -1 ? "▼ BEAR" : "○ —"
     bool   _phaseAgree = _ownState != "—" and (str.contains(_ownState, "Expansion") == str.contains(ie1a_currentPhase, "Expansion")) and (str.contains(_ownState, "Retracement") == str.contains(ie1a_currentPhase, "Retracement"))
     string _ownLoc = (na(_ownOrig) or na(_ownExt)) ? "—" : str.tostring(math.round_to_mintick(_ownOrig)) + "  →  " + str.tostring(math.round_to_mintick(_ownExt))
@@ -2275,6 +2287,11 @@ if barstate.islast and showCurve
     table.cell(treeT, 1, 5, _ownState, text_color = #5eead4, text_size = size.small, text_halign = text.align_left)
     table.cell(treeT, 0, 6, "Phase ← machine (legacy)", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
     table.cell(treeT, 1, 6, ie1a_currentPhase + (_phaseAgree ? "  ✓" : "  ≠"), text_color = _phaseAgree ? #34d399 : #fbbf24, text_size = size.small, text_halign = text.align_left)
+    // ── F72 Principle 10 — compression persistence: can the counter side build? ──
+    table.cell(treeT, 0, 7, "Force (compression persist)", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
+    table.cell(treeT, 1, 7, _cpState + "  " + str.tostring(math.round(_cpForce)), text_color = _cpState == "PERSISTING" ? #34d399 : _cpState == "LEAKING" ? #fb7185 : #fbbf24, text_size = size.small)
+    table.cell(treeT, 0, 8, _cpState == "LEAKING" ? "Defends (origin in play)" : "Ownership migrated → defends", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
+    table.cell(treeT, 1, 8, _cpState == "LEAKING" ? (na(_ownOrig) ? "—" : str.tostring(math.round_to_mintick(_ownOrig)) + " origin") : (na(_mig50) ? "—" : str.tostring(math.round_to_mintick(_mig618)) + "–" + str.tostring(math.round_to_mintick(_mig50)) + "  (0.618–0.5)"), text_color = _cpState == "LEAKING" ? #fda4af : #5eead4, text_size = size.small, text_halign = text.align_left)
 
 // ── F72 — plot the CURVE TREE on the chart: each live curve as origin→extreme,
 //    coloured by direction, dashed when recursive (depth>0), tagged with its
@@ -2314,6 +2331,19 @@ if barstate.islast and showTree
                 array.push(tree_lbls, label.new(_xr, _tn.origin, _idTag, style = label.style_label_left, color = color.new(_cc, math.min(55, 12 + _tn.depth * 16)), textcolor = #04130c, size = _tn.depth == 0 ? size.small : size.tiny))
                 // plain extreme marker — how far the curve has travelled · energy
                 array.push(tree_lbls, label.new(_xr, _tn.extreme, "C" + str.tostring(_tn.depth) + " extreme " + str.tostring(math.round_to_mintick(_tn.extreme)) + " · e" + str.tostring(math.round(_tn.energy)), style = label.style_label_left, color = color.new(_cc, 80), textcolor = _cc, size = size.tiny))
+    // ── Principle 10 — draw WHERE ownership defends: the migrated 0.5–0.618 band of
+    //    the owner's leg (extreme abandoned) when force persists, or the origin when
+    //    force is leaking (return-to-extreme risk). ─────────────────────────────────
+    if not na(_ownExt) and not na(_ownOrig)
+        int _mx0 = bar_index - 60
+        int _mxr = bar_index + 5
+        if _cpState == "LEAKING"
+            array.push(tree_lines, line.new(_mx0, _ownOrig, _mxr, _ownOrig, color = color.new(#fb7185, 25), width = 2))
+            array.push(tree_lbls, label.new(_mxr, _ownOrig, "ORIGIN IN PLAY · force leaking " + str.tostring(math.round_to_mintick(_ownOrig)), style = label.style_label_left, color = color.new(#fb7185, 20), textcolor = #160406, size = size.small))
+        else if not na(_mig50) and not na(_mig618)
+            color _mc = _cpState == "PERSISTING" ? #5eead4 : #fbbf24
+            array.push(tree_boxes, box.new(_mx0, _mig50, _mxr, _mig618, border_color = color.new(_mc, 40), border_width = 1, bgcolor = color.new(_mc, 82)))
+            array.push(tree_lbls, label.new(_mxr, _mig618, (_cpState == "PERSISTING" ? "OWNERSHIP MIGRATED · defends 0.5–0.618 (extreme abandoned)" : "watch 0.5–0.618") + " · F" + str.tostring(math.round(_cpForce)), style = label.style_label_left, color = color.new(_mc, 22), textcolor = #04130c, size = size.small))
 
 // ── Alerts (global scope) ─────────────────────────────────────────────────────
 alertcondition(gAction == "ATTACK" and gMaster == 1,  "Senseei ATTACK Long",  "Master Senseei: ATTACK long")
