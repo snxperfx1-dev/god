@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v31", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v32", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -2288,11 +2288,13 @@ if barstate.islast and showTree
                 array.push(tree_lines, line.new(_x0, _tn.origin, _xr, _tn.origin, color = color.new(_cc, 55), width = 1, style = line.style_dotted))
                 // extreme (current reach) level — solid for root, dashed for recursive child
                 array.push(tree_lines, line.new(_x0, _tn.extreme, _xr, _tn.extreme, color = color.new(_cc, 20), width = _tn.depth == 0 ? 2 : 1, style = _tn.depth == 0 ? line.style_solid : line.style_dashed))
-                // single tag at the extreme: depth · emergent phase · price · energy
-                string _tag = "C" + str.tostring(_tn.depth) + (_tn.dir == 1 ? " ▲ " : " ▼ ") + _tn.state + "  " + str.tostring(math.round_to_mintick(_tn.extreme)) + " · e" + str.tostring(math.round(_tn.energy))
-                array.push(tree_lbls, label.new(_xr, _tn.extreme, _tag, style = label.style_label_left, color = color.new(_cc, math.min(55, 12 + _tn.depth * 16)), textcolor = #04130c, size = _tn.depth == 0 ? size.small : size.tiny))
-                // origin (birth) tag — names the start level the panel reports
-                array.push(tree_lbls, label.new(_xr, _tn.origin, "C" + str.tostring(_tn.depth) + " origin " + str.tostring(math.round_to_mintick(_tn.origin)), style = label.style_label_left, color = color.new(_cc, 80), textcolor = _cc, size = size.tiny))
+                // identity tag at the ORIGIN (birth) — depth · dir · emergent phase · origin price.
+                // The phase ("Point 4 Origin" etc.) describes where the curve was BORN, so it
+                // belongs at the origin — not at the extreme, where it read as a false origin.
+                string _idTag = "C" + str.tostring(_tn.depth) + (_tn.dir == 1 ? " ▲ " : " ▼ ") + _tn.state + " · origin " + str.tostring(math.round_to_mintick(_tn.origin))
+                array.push(tree_lbls, label.new(_xr, _tn.origin, _idTag, style = label.style_label_left, color = color.new(_cc, math.min(55, 12 + _tn.depth * 16)), textcolor = #04130c, size = _tn.depth == 0 ? size.small : size.tiny))
+                // plain extreme marker — how far the curve has travelled · energy
+                array.push(tree_lbls, label.new(_xr, _tn.extreme, "C" + str.tostring(_tn.depth) + " extreme " + str.tostring(math.round_to_mintick(_tn.extreme)) + " · e" + str.tostring(math.round(_tn.energy)), style = label.style_label_left, color = color.new(_cc, 80), textcolor = _cc, size = size.tiny))
 
 // ── Alerts (global scope) ─────────────────────────────────────────────────────
 alertcondition(gAction == "ATTACK" and gMaster == 1,  "Senseei ATTACK Long",  "Master Senseei: ATTACK long")
