@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v45", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v46", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1560,7 +1560,16 @@ bool  _recursionComplete = _curveBudgetDepth > 0 and _treeDepth >= _curveBudgetD
 bool  _attacking   = _ownDirT == 1 ? high >= nz(_ownExt, high) : _ownDirT == -1 ? low <= nz(_ownExt, low) : false
 bool  _trendImp    = (_ownDirT == 1 and bullImpulse) or (_ownDirT == -1 and bearImpulse)
 bool  _progressing = _attacking or _trendImp
-float _life = math.max(0.0, math.min(100.0, _cpForce * 0.45 + nz(gCurve.eRes, 0.0) * 0.30 + (_cmpTighten > 0.0 ? 12.0 : 0.0) - (_recursionComplete and not _progressing ? 25.0 : 0.0) - (_cpState == "LEAKING" and not _progressing ? 20.0 : 0.0) + (_progressing ? 28.0 : 0.0) + 10.0))
+// retrace depth from the curve's extreme: shallow (near extreme) = healthy/alive;
+// deep (near origin) = at risk. The life score must reflect this directly.
+float _retrX = (na(_ownExt) or na(_ownOrig) or _ownExt == _ownOrig) ? 50.0 : math.min(100.0, math.abs(_ownExt - close) / math.abs(_ownExt - _ownOrig) * 100.0)
+// ── HTF PARENT THREAT — the trade clears IMMEDIATE structure first; the parent wave
+//   (highest map rung, e.g. H4) is the looming threat it must still reach. Separates
+//   "viable now" from "viable into the HTF zone (and how it behaves there)".
+float _parentThreat = _ownDirT == 1 ? (not na(se240_ft) and se240_ft > close ? se240_ft : se240_sh) : _ownDirT == -1 ? (not na(se240_fb) and se240_fb < close ? se240_fb : se240_sl) : na
+float _htfRoomAtr   = na(_parentThreat) ? na : math.abs(_parentThreat - close) / math.max(atr, 1e-10)
+string _htfThreat   = na(_parentThreat) ? "—" : _htfRoomAtr > 3.0 ? "CLEAR runway" : _htfRoomAtr > 1.0 ? "APPROACHING" : "AT ZONE"
+float _life = math.max(0.0, math.min(100.0, _cpForce * 0.45 + nz(gCurve.eRes, 0.0) * 0.30 + (_cmpTighten > 0.0 ? 12.0 : 0.0) - (_recursionComplete and not _progressing ? 25.0 : 0.0) - (_cpState == "LEAKING" and not _progressing ? 20.0 : 0.0) + (_progressing ? 28.0 : 0.0) + (_retrX < 25.0 ? 16.0 : _retrX < 45.0 ? 6.0 : _retrX > 75.0 ? -12.0 : 0.0) + 10.0))
 string _aliveCounter = _ownDirT == 1 ? "▼ SHORT" : "▲ LONG"
 string _aliveTx  = _progressing and _life >= 45.0 ? "▲ ALIVE · ATTACKING EXTREME" : _life >= 60.0 ? "● ALIVE · HOLD" : _life <= 32.0 ? "✕ DEAD · FLIP " + _aliveCounter : "◐ WEAKENING · MANAGE"
 color  _aliveCol = (_progressing and _life >= 45.0) or _life >= 60.0 ? #34d399 : _life <= 32.0 ? #fb7185 : #fbbf24
@@ -2396,7 +2405,7 @@ if barstate.islast and showCurve
 if barstate.islast and showCurve
     var table treeT = na
     if na(treeT)
-        treeT := table.new(position.middle_center, 2, 14, bgcolor = color.new(#0a0e27, 4), frame_color = color.new(#22d3ee, 25), frame_width = 2, border_width = 0)
+        treeT := table.new(position.middle_center, 2, 15, bgcolor = color.new(#0a0e27, 4), frame_color = color.new(#22d3ee, 25), frame_width = 2, border_width = 0)
     string _odTx = _ownDirT == 1 ? "▲ BULL" : _ownDirT == -1 ? "▼ BEAR" : "○ —"
     bool   _phaseAgree = _ownState != "—" and (str.contains(_ownState, "Expansion") == str.contains(ie1a_currentPhase, "Expansion")) and (str.contains(_ownState, "Retracement") == str.contains(ie1a_currentPhase, "Retracement"))
     string _ownLoc = (na(_ownOrig) or na(_ownExt)) ? "—" : str.tostring(math.round_to_mintick(_ownOrig)) + " → " + str.tostring(math.round_to_mintick(_ownExt)) + " → " + str.tostring(math.round_to_mintick(close))
@@ -2440,6 +2449,9 @@ if barstate.islast and showCurve
     // ── second score: is life decaying across successive curves? (scope of danger) ──
     table.cell(treeT, 0, 13, "Chain vitality · scope", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
     table.cell(treeT, 1, 13, str.tostring(math.round(_chainVitality)) + " ch / " + str.tostring(math.round(_wholeChainLife)) + " whole · " + _chainScope, text_color = _chainCol, text_size = size.small, text_halign = text.align_left)
+    // ── separate IMMEDIATE viability from the looming PARENT (HTF) threat ──
+    table.cell(treeT, 0, 14, "→ " + _wl6 + " parent threat", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
+    table.cell(treeT, 1, 14, _htfThreat + (na(_htfRoomAtr) ? "" : " · " + str.tostring(math.round(_htfRoomAtr * 10) / 10) + " ATR") + (na(_parentThreat) ? "" : " · " + str.tostring(math.round_to_mintick(_parentThreat))), text_color = na(_htfRoomAtr) ? #94a3b8 : _htfRoomAtr > 3.0 ? #34d399 : _htfRoomAtr > 1.0 ? #fbbf24 : #fb7185, text_size = size.small, text_halign = text.align_left)
 
 // ── F72 — plot the CURVE TREE on the chart: each live curve as origin→extreme,
 //    coloured by direction, dashed when recursive (depth>0), tagged with its
