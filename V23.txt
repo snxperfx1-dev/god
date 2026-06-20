@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v34", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v35", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1524,8 +1524,11 @@ float  _ownExt   = _ownF >= 0 ? array.get(_tree, _ownF).extreme : na
 //   becomes irrelevant, and support/resistance MIGRATES to the 0.5–0.618 band of the
 //   expansion leg. Broad compression + growing recursion ⇒ energy leaks, the origin
 //   stays in play, return-to-extreme risk rises (ownership about to transfer).
-float _cpForce = math.max(0.0, math.min(100.0, nz(gCurve.compress, 0.0) * 0.55 + nz(gCurve.eRes, 0.0) * 0.25 - _treeDepth * 12.0 + 8.0))
+float _cmpNow     = nz(gCurve.compress, 0.0)
+float _cmpTighten = _cmpNow - nz(_cmpNow[5], _cmpNow)   // > 0 ⇒ pullback TIGHTENING (counter side suffocating); < 0 ⇒ broadening (it's getting room)
+float _cpForce = math.max(0.0, math.min(100.0, _cmpNow * 0.50 + nz(gCurve.eRes, 0.0) * 0.20 - _treeDepth * 12.0 + math.max(0.0, _cmpTighten) * 0.8 + 8.0))
 string _cpState = _cpForce >= 60.0 ? "PERSISTING" : _cpForce <= 35.0 ? "LEAKING" : "NEUTRAL"
+string _cpTrend = _cmpTighten > 3.0 ? "↑ tightening" : _cmpTighten < -3.0 ? "↓ broadening" : "→ stable"
 // migrated ownership band — 0.5 / 0.618 retracement of the owner curve's leg
 float _mig50  = (na(_ownOrig) or na(_ownExt)) ? na : _ownExt + 0.5   * (_ownOrig - _ownExt)
 float _mig618 = (na(_ownOrig) or na(_ownExt)) ? na : _ownExt + 0.618 * (_ownOrig - _ownExt)
@@ -2289,7 +2292,7 @@ if barstate.islast and showCurve
     table.cell(treeT, 1, 6, ie1a_currentPhase + (_phaseAgree ? "  ✓" : "  ≠"), text_color = _phaseAgree ? #34d399 : #fbbf24, text_size = size.small, text_halign = text.align_left)
     // ── F72 Principle 10 — compression persistence: can the counter side build? ──
     table.cell(treeT, 0, 7, "Force (compression persist)", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
-    table.cell(treeT, 1, 7, _cpState + "  " + str.tostring(math.round(_cpForce)), text_color = _cpState == "PERSISTING" ? #34d399 : _cpState == "LEAKING" ? #fb7185 : #fbbf24, text_size = size.small)
+    table.cell(treeT, 1, 7, _cpState + "  " + str.tostring(math.round(_cpForce)) + "  " + _cpTrend, text_color = _cpState == "PERSISTING" ? #34d399 : _cpState == "LEAKING" ? #fb7185 : #fbbf24, text_size = size.small)
     table.cell(treeT, 0, 8, _cpState == "LEAKING" ? "Defends (origin in play)" : "Ownership migrated → defends", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
     table.cell(treeT, 1, 8, _cpState == "LEAKING" ? (na(_ownOrig) ? "—" : str.tostring(math.round_to_mintick(_ownOrig)) + " origin") : (na(_mig50) ? "—" : str.tostring(math.round_to_mintick(_mig618)) + "–" + str.tostring(math.round_to_mintick(_mig50)) + "  (0.618–0.5)"), text_color = _cpState == "LEAKING" ? #fda4af : #5eead4, text_size = size.small, text_halign = text.align_left)
 
@@ -2343,7 +2346,7 @@ if barstate.islast and showTree
         else if not na(_mig50) and not na(_mig618)
             color _mc = _cpState == "PERSISTING" ? #5eead4 : #fbbf24
             array.push(tree_boxes, box.new(_mx0, _mig50, _mxr, _mig618, border_color = color.new(_mc, 40), border_width = 1, bgcolor = color.new(_mc, 82)))
-            array.push(tree_lbls, label.new(_mxr, _mig618, (_cpState == "PERSISTING" ? "OWNERSHIP MIGRATED · defends 0.5–0.618 (extreme abandoned)" : "watch 0.5–0.618") + " · F" + str.tostring(math.round(_cpForce)), style = label.style_label_left, color = color.new(_mc, 22), textcolor = #04130c, size = size.small))
+            array.push(tree_lbls, label.new(_mxr, _mig618, (_cpState == "PERSISTING" ? "OWNERSHIP MIGRATED · defends 0.5–0.618 (extreme abandoned)" : "watch 0.5–0.618") + " · F" + str.tostring(math.round(_cpForce)) + " " + _cpTrend, style = label.style_label_left, color = color.new(_mc, 22), textcolor = #04130c, size = size.small))
 
 // ── Alerts (global scope) ─────────────────────────────────────────────────────
 alertcondition(gAction == "ATTACK" and gMaster == 1,  "Senseei ATTACK Long",  "Master Senseei: ATTACK long")
