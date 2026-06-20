@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v27", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v28", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1401,15 +1401,26 @@ f_nodeState(int _d, float _e, int _dep, float _cmp, float _mat) =>
     _dep > 0 ? (_e >= 70.0 ? "Transition · recursive expansion" : _e >= 40.0 ? "Transition · recursive induction" : "Transition · recursive liquidation") : _mat < 12.0 ? "Point 4 Origin" : (_e >= 78.0 and _mat >= 70.0) ? (_d == 1 ? "New High" : _d == -1 ? "New Low" : "Climax") : _mat < 35.0 ? "Expansion" : _mat < 55.0 ? "Expansion Pre-Convexity" : _e >= 55.0 ? "Expansion Induction" : _e >= 35.0 ? "Expansion Liquidity" : _cmp >= 60.0 ? "Retracement Pre-Convexity" : _e >= 18.0 ? "Retracement Induction" : "Retracement"
 var array<CurveNode> _tree = array.new<CurveNode>()
 var int _nodeSeq = 0
-// pre-owner (max-energy living node) — drives child-spawn direction
-int   _preOwn = -1
-float _preE   = -1.0
+// F72 Principle 8 — ownership belongs to the shallowest (parent) curve that still
+// holds energy; a child only takes over once the parent dissipates below the floor.
+float _ownMinE = 12.0
+// pre-owner (the owning parent under Principle 8) — drives child-spawn direction
+int   _preOwn   = -1
+float _preE     = -1.0
+int   _preDepth = 999
 if array.size(_tree) > 0
     for _ti = 0 to array.size(_tree) - 1
         CurveNode _tn = array.get(_tree, _ti)
-        if _tn.alive and _tn.energy > _preE
-            _preE := _tn.energy
-            _preOwn := _ti
+        if _tn.alive and _tn.energy >= _ownMinE and (_tn.depth < _preDepth or (_tn.depth == _preDepth and _tn.energy > _preE))
+            _preDepth := _tn.depth
+            _preE     := _tn.energy
+            _preOwn   := _ti
+    if _preOwn < 0
+        for _ti = 0 to array.size(_tree) - 1
+            CurveNode _tn = array.get(_tree, _ti)
+            if _tn.alive and _tn.energy > _preE
+                _preE   := _tn.energy
+                _preOwn := _ti
 // seed / RE-SEED the root curve whenever no living curve owns price (a fully
 // dissipated curve gives birth to a new one — Axiom 0: dissipate → transition → recur)
 if _preOwn < 0 and displayWaveDir_M5 != 0 and not na(se5_inv)
@@ -1434,18 +1445,26 @@ if array.size(_tree) > 0
                 _tn.alive := false
 while array.size(_tree) > 60
     array.shift(_tree)
-// tree summary + final (emergent) owner = dominant-energy living node
+// tree summary + final (emergent) owner under Principle 8 (shallowest with energy)
 int   _treeAlive = 0
 int   _treeDepth = 0
-int   _ownF  = -1
-float _ownFE = -1.0
+int   _ownF      = -1
+float _ownFE     = -1.0
+int   _ownDepth  = 999
 if array.size(_tree) > 0
     for _ti = 0 to array.size(_tree) - 1
         CurveNode _tn = array.get(_tree, _ti)
         if _tn.alive
             _treeAlive += 1
             _treeDepth := math.max(_treeDepth, _tn.depth)
-            if _tn.energy > _ownFE
+            if _tn.energy >= _ownMinE and (_tn.depth < _ownDepth or (_tn.depth == _ownDepth and _tn.energy > _ownFE))
+                _ownDepth := _tn.depth
+                _ownFE    := _tn.energy
+                _ownF     := _ti
+    if _ownF < 0
+        for _ti = 0 to array.size(_tree) - 1
+            CurveNode _tn = array.get(_tree, _ti)
+            if _tn.alive and _tn.energy > _ownFE
                 _ownFE := _tn.energy
                 _ownF  := _ti
 int   _ownDirT   = _ownF >= 0 ? array.get(_tree, _ownF).dir    : 0
@@ -2233,7 +2252,7 @@ if barstate.islast and showTree
     if array.size(_tree) > 0
         for _ti = 0 to array.size(_tree) - 1
             CurveNode _tn = array.get(_tree, _ti)
-            if _tn.alive and not na(_tn.origin) and not na(_tn.extreme)
+            if _tn.alive and _tn.energy >= 10.0 and not na(_tn.origin) and not na(_tn.extreme)
                 color _cc = _tn.dir == 1 ? #34d399 : #fb7185
                 int   _x0 = math.max(_tn.bar, bar_index - 300)
                 int   _xr = bar_index + 5
