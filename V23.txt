@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v41", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v42", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1391,40 +1391,15 @@ Curve c_r4 = f_rungCurve(l1_dir, se15_inv,  nz(se15_cm),  nz(se15_wp),  nz(se15_
 Curve c_r5 = f_rungCurve(l2_dir, se60_inv,  nz(se60_cm),  nz(se60_wp),  nz(se60_comp))
 Curve c_r6 = f_rungCurve(l4_dir, se240_inv, nz(se240_cm), nz(se240_wp), nz(se240_comp))
 
-// ── Per-timeframe TRUE running extreme — resets only when THAT timeframe's origin
-//    (seN_inv) changes, so each curve's extreme = the actual furthest price since
-//    its own origin. BOTH the curve tree (owner) and the MTF map read these, so
-//    their origin→extreme coordinates are sourced identically and stay consistent.
-var float _x1hi = na
-var float _x1lo = na
-var float _x3hi = na
-var float _x3lo = na
-var float _x5hi = na
-var float _x5lo = na
-var float _x15hi = na
-var float _x15lo = na
-var float _x60hi = na
-var float _x60lo = na
-var float _x240hi = na
-var float _x240lo = na
-_x1hi   := na(se1_inv[1])   or se1_inv   != se1_inv[1]   ? high : math.max(nz(_x1hi, high), high)
-_x1lo   := na(se1_inv[1])   or se1_inv   != se1_inv[1]   ? low  : math.min(nz(_x1lo, low), low)
-_x3hi   := na(se3_inv[1])   or se3_inv   != se3_inv[1]   ? high : math.max(nz(_x3hi, high), high)
-_x3lo   := na(se3_inv[1])   or se3_inv   != se3_inv[1]   ? low  : math.min(nz(_x3lo, low), low)
-_x5hi   := na(se5_inv[1])   or se5_inv   != se5_inv[1]   ? high : math.max(nz(_x5hi, high), high)
-_x5lo   := na(se5_inv[1])   or se5_inv   != se5_inv[1]   ? low  : math.min(nz(_x5lo, low), low)
-_x15hi  := na(se15_inv[1])  or se15_inv  != se15_inv[1]  ? high : math.max(nz(_x15hi, high), high)
-_x15lo  := na(se15_inv[1])  or se15_inv  != se15_inv[1]  ? low  : math.min(nz(_x15lo, low), low)
-_x60hi  := na(se60_inv[1])  or se60_inv  != se60_inv[1]  ? high : math.max(nz(_x60hi, high), high)
-_x60lo  := na(se60_inv[1])  or se60_inv  != se60_inv[1]  ? low  : math.min(nz(_x60lo, low), low)
-_x240hi := na(se240_inv[1]) or se240_inv != se240_inv[1] ? high : math.max(nz(_x240hi, high), high)
-_x240lo := na(se240_inv[1]) or se240_inv != se240_inv[1] ? low  : math.min(nz(_x240lo, low), low)
-float _ext1   = m1_dir == 1 ? _x1hi   : m1_dir == -1 ? _x1lo   : na
-float _ext3   = l3_dir == 1 ? _x3hi   : l3_dir == -1 ? _x3lo   : na
-float _ext5   = l0_dir == 1 ? _x5hi   : l0_dir == -1 ? _x5lo   : na
-float _ext15  = l1_dir == 1 ? _x15hi  : l1_dir == -1 ? _x15lo  : na
-float _ext60  = l2_dir == 1 ? _x60hi  : l2_dir == -1 ? _x60lo  : na
-float _ext240 = l4_dir == 1 ? _x240hi : l4_dir == -1 ? _x240lo : na
+// ── Per-timeframe curve extreme = the engine's confirmed SWING high/low for that
+//    timeframe (the structural peak/trough of the curve), NOT a live running max
+//    (which just tracks the current candle). Read by BOTH the tree owner and map.
+float _ext1   = m1_dir == 1 ? se1_sh   : m1_dir == -1 ? se1_sl   : na
+float _ext3   = l3_dir == 1 ? se3_sh   : l3_dir == -1 ? se3_sl   : na
+float _ext5   = l0_dir == 1 ? se5_sh   : l0_dir == -1 ? se5_sl   : na
+float _ext15  = l1_dir == 1 ? se15_sh  : l1_dir == -1 ? se15_sl  : na
+float _ext60  = l2_dir == 1 ? se60_sh  : l2_dir == -1 ? se60_sl  : na
+float _ext240 = l4_dir == 1 ? se240_sh : l4_dir == -1 ? se240_sl : na
 
 // ══════════════════════════════════════════════════════════════════════════════
 // F72 — RECURSIVE CURVE TREE  (event-generated CurveNodes — the real engine seed)
@@ -1517,7 +1492,7 @@ if array.size(_tree) > 0
             // match the MTF map; children track their own counter-move extreme.
             if _tn.depth == 0
                 _tn.origin  := _tn.srcTf == 6 ? se240_inv : _tn.srcTf == 5 ? se60_inv : se5_inv
-                _tn.extreme := _tn.srcTf == 6 ? (_tn.dir == 1 ? _x240hi : _x240lo) : _tn.srcTf == 5 ? (_tn.dir == 1 ? _x60hi : _x60lo) : (_tn.dir == 1 ? _x5hi : _x5lo)
+                _tn.extreme := _tn.srcTf == 6 ? (_tn.dir == 1 ? se240_sh : se240_sl) : _tn.srcTf == 5 ? (_tn.dir == 1 ? se60_sh : se60_sl) : (_tn.dir == 1 ? se5_sh : se5_sl)
             else
                 _tn.extreme := _tn.dir == 1 ? math.max(nz(_tn.extreme, high), high) : math.min(nz(_tn.extreme, low), low)
             _tn.energy  := _prog ? math.min(100.0, _tn.energy + 7.0) : math.max(0.0, _tn.energy - 2.0)
@@ -1558,7 +1533,7 @@ float _ownNrgT   = _ownF >= 0 ? array.get(_tree, _ownF).energy : 0.0
 string _ownState = _ownF >= 0 ? array.get(_tree, _ownF).state : "—"
 int    _ownSrc   = _ownF >= 0 ? array.get(_tree, _ownF).srcTf : 5
 float  _ownOrig  = _ownSrc == 6 ? se240_inv : _ownSrc == 5 ? se60_inv : se5_inv
-float  _ownExt   = _ownSrc == 6 ? (_ownDirT == 1 ? _x240hi : _x240lo) : _ownSrc == 5 ? (_ownDirT == 1 ? _x60hi : _x60lo) : (_ownDirT == 1 ? _x5hi : _x5lo)
+float  _ownExt   = _ownSrc == 6 ? (_ownDirT == 1 ? se240_sh : se240_sl) : _ownSrc == 5 ? (_ownDirT == 1 ? se60_sh : se60_sl) : (_ownDirT == 1 ? se5_sh : se5_sl)
 // ── F72 Principle 10 — COMPRESSION PERSISTENCE ───────────────────────────────
 //   After a break + pullback, the question is NOT "how deep will it retrace?" but
 //   "can the COUNTER side even generate room to build?". Tight compression + energy
