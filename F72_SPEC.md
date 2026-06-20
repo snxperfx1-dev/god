@@ -147,6 +147,15 @@ retracement, induction, liquidation, campaigns, entries, transitions — all are
 manifestations of one object: the Curve. The final engine is not a phase machine;
 it is a living recursive geometry engine built from nested CurveNodes.
 
+**17 — Narrative Lineage (continuity).** The hold-vs-abandon judgement is not made by
+one curve but by the **sequence** of curves: origin → entry → progress → entry. Each
+completed pullback votes **SUPPORT** (shallow retrace + tightening compression),
+**DEGRADE** (deep retrace + broadening), or **TRANSFER** (a new story begins). A
+**converging** chain (successively shallower retraces, rising compression, more
+aggressive participants) ⇒ the story is *strengthening*; a **diverging** chain ⇒
+*weakening*. You weren't trading curves — you were trading the **continuity of belief
+expressed through curves**, a layer above the tree itself.
+
 ---
 
 ## HONEST ENGINE-vs-PANEL INVENTORY (as of v23)

@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v37", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v38", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1543,6 +1543,51 @@ color  _aliveCol = _life >= 60.0 ? #34d399 : _life <= 32.0 ? #fb7185 : #fbbf24
 float _mig50  = (na(_ownOrig) or na(_ownExt)) ? na : _ownExt + 0.5   * (_ownOrig - _ownExt)
 float _mig618 = (na(_ownOrig) or na(_ownExt)) ? na : _ownExt + 0.618 * (_ownOrig - _ownExt)
 
+// ── F72 — NARRATIVE LINEAGE: track the SEQUENCE of entry curves (origin → entry →
+//   progress → entry …), not just one curve. Each completed pullback within the
+//   owner's direction votes: SUPPORT (shallow retrace + tightening) or DEGRADE
+//   (deep retrace + broadening). A CONVERGING sequence (shallower retraces, rising
+//   compression) ⇒ the story is STRENGTHENING; a DIVERGING one ⇒ weakening, and
+//   ownership is about to transfer. This is "can I keep holding?" answered by lineage.
+var int    _narrDir    = 0
+var float  _legX       = na
+var float  _legPBdepth = 0.0
+var float  _narrative  = 50.0
+var string _lastVote   = "—"
+var int    _supVotes   = 0
+var int    _degVotes   = 0
+var array<float> _seqRetr = array.new<float>()
+if _ownDirT != _narrDir
+    _narrDir    := _ownDirT
+    _legX       := _ownDirT == 1 ? high : _ownDirT == -1 ? low : na
+    _legPBdepth := 0.0
+    _narrative  := 50.0
+    _supVotes   := 0
+    _degVotes   := 0
+    _lastVote   := "—"
+    array.clear(_seqRetr)
+if _ownDirT != 0 and not na(_ownOrig)
+    bool _newLegX = _ownDirT == 1 ? high > nz(_legX, high) : low < nz(_legX, low)
+    if _newLegX
+        if _legPBdepth > 6.0
+            bool _sup  = _legPBdepth <= 50.0 and _cmpTighten >= -1.0
+            bool _deg  = _legPBdepth >= 62.0 or _cmpTighten < -3.0
+            int  _vote = _sup ? 1 : _deg ? -1 : 0
+            _lastVote  := _vote == 1 ? "SUPPORT" : _vote == -1 ? "DEGRADE" : "NEUTRAL"
+            _supVotes  := _supVotes + (_vote == 1 ? 1 : 0)
+            _degVotes  := _degVotes + (_vote == -1 ? 1 : 0)
+            _narrative := math.max(0.0, math.min(100.0, _narrative + _vote * 12.0 + (_cmpTighten > 0.0 ? 3.0 : -3.0)))
+            array.push(_seqRetr, _legPBdepth)
+            if array.size(_seqRetr) > 5
+                array.shift(_seqRetr)
+        _legX := _ownDirT == 1 ? high : low
+        _legPBdepth := 0.0
+    else
+        float _pbd = math.abs(nz(_legX, close) - _ownOrig) > 1e-9 ? math.abs(nz(_legX, close) - close) / math.abs(nz(_legX, close) - _ownOrig) * 100.0 : 0.0
+        _legPBdepth := math.max(_legPBdepth, _pbd)
+string _narrState = _narrative >= 65.0 ? "STRENGTHENING" : _narrative <= 35.0 ? "WEAKENING" : "HOLDING"
+bool   _converging = array.size(_seqRetr) >= 2 and array.get(_seqRetr, array.size(_seqRetr) - 1) < array.get(_seqRetr, array.size(_seqRetr) - 2)
+
 // ── Drawing objects + hoisted state for global alerts ────────────────────────
 var array<line>  net_lines = array.new<line>()
 var array<label> net_lbls  = array.new<label>()
@@ -2280,7 +2325,7 @@ if barstate.islast and showCurve
 if barstate.islast and showCurve
     var table treeT = na
     if na(treeT)
-        treeT := table.new(position.middle_center, 2, 10, bgcolor = color.new(#0a0e27, 4), frame_color = color.new(#22d3ee, 25), frame_width = 2, border_width = 0)
+        treeT := table.new(position.middle_center, 2, 13, bgcolor = color.new(#0a0e27, 4), frame_color = color.new(#22d3ee, 25), frame_width = 2, border_width = 0)
     string _odTx = _ownDirT == 1 ? "▲ BULL" : _ownDirT == -1 ? "▼ BEAR" : "○ —"
     bool   _phaseAgree = _ownState != "—" and (str.contains(_ownState, "Expansion") == str.contains(ie1a_currentPhase, "Expansion")) and (str.contains(_ownState, "Retracement") == str.contains(ie1a_currentPhase, "Retracement"))
     string _ownLoc = (na(_ownOrig) or na(_ownExt)) ? "—" : str.tostring(math.round_to_mintick(_ownOrig)) + " → " + str.tostring(math.round_to_mintick(_ownExt)) + " → " + str.tostring(math.round_to_mintick(close))
@@ -2309,6 +2354,18 @@ if barstate.islast and showCurve
     // ── THE judgement: is the campaign still alive? hold vs abandon (flip) ──
     table.cell(treeT, 0, 9, "TRADE ALIVE?  life " + str.tostring(math.round(_life)), text_color = #0a0e27, text_size = size.normal, text_halign = text.align_left, bgcolor = color.new(_aliveCol, 25))
     table.cell(treeT, 1, 9, _aliveTx, text_color = #0a0e27, text_size = size.normal, bgcolor = color.new(_aliveCol, 25))
+    // ── Narrative LINEAGE — is the sequence of entry curves converging or diverging? ──
+    string _seqTx = ""
+    if array.size(_seqRetr) > 0
+        for _si = 0 to array.size(_seqRetr) - 1
+            _seqTx := _seqTx + str.tostring(math.round(array.get(_seqRetr, _si))) + (_si < array.size(_seqRetr) - 1 ? " → " : "")
+    color _narrCol = _narrState == "STRENGTHENING" ? #34d399 : _narrState == "WEAKENING" ? #fb7185 : #fbbf24
+    table.cell(treeT, 0, 10, "Narrative (lineage)", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
+    table.cell(treeT, 1, 10, _narrState + "  " + str.tostring(math.round(_narrative)) + "  (S" + str.tostring(_supVotes) + "/D" + str.tostring(_degVotes) + ")", text_color = _narrCol, text_size = size.small, text_halign = text.align_left)
+    table.cell(treeT, 0, 11, "Retrace sequence (% leg)", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
+    table.cell(treeT, 1, 11, _seqTx == "" ? "forming…" : _seqTx, text_color = #fde68a, text_size = size.small, text_halign = text.align_left)
+    table.cell(treeT, 0, 12, "Chain · last vote", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
+    table.cell(treeT, 1, 12, (array.size(_seqRetr) < 2 ? "forming" : (_converging ? "CONVERGING (story builds)" : "DIVERGING (story fades)")) + " · " + _lastVote, text_color = array.size(_seqRetr) < 2 ? #94a3b8 : (_converging ? #34d399 : #fb7185), text_size = size.small, text_halign = text.align_left)
 
 // ── F72 — plot the CURVE TREE on the chart: each live curve as origin→extreme,
 //    coloured by direction, dashed when recursive (depth>0), tagged with its
