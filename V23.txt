@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v44", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v45", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -36,7 +36,7 @@ bool   showCampaign = input.bool(true, "Show Campaign Ownership panel (F72, midd
 bool   showParticipants = input.bool(true, "Show Participant interference zones (0.618/0.70/0.786 + flip)", group = GRP)
 bool   showCurve   = input.bool(true, "Show Curve object — energy state (F72 foundation, middle-right)", group = GRP)
 bool   showTree    = input.bool(true, "Plot CURVE TREE on chart (live curves · origin→extreme · emergent phase)", group = GRP)
-string curveCtx    = input.string("H1", "Curve TREE root anchor (timeframe-stable context)", options = ["Chart wave", "H1", "H4"], group = GRP)
+string curveCtx    = input.string("Chart wave", "Curve TREE root anchor", options = ["Chart wave", "Higher TF", "Highest TF"], tooltip = "Which curve the tree tracks. 'Chart wave' = the chart timeframe's own curve (recommended — the MTF map already shows higher-timeframe context). 'Higher/Highest TF' climb the timeframe ladder. The panel header shows the actual resolved timeframe.", group = GRP)
 int    minConf     = input.int  (55,  "Min confidence to ATTACK",     group = GRP, minval = 0, maxval = 100)
 int    pivLen      = input.int  (8,   "Wave pivot length",            group = GRP, minval = 2, maxval = 50)
 bool   showRegions = input.bool (true, "Show phase REGION labels",    group = GRP)
@@ -1458,7 +1458,8 @@ if array.size(_tree) > 0
 //    its origin does NOT shift as you change chart timeframe. se60 (H1) / se240 (H4)
 //    are fixed-TF; se5 is the chart wave. Lower-TF waves nest as children inside it.
 bool  _ctxChart = curveCtx == "Chart wave"
-bool  _ctxH4    = curveCtx == "H4"
+bool  _ctxH4    = curveCtx == "Highest TF"
+string _ctxLbl  = _ctxChart ? _wl3 : _ctxH4 ? _wl6 : _wl5
 int   _ctxDir   = _ctxChart ? displayWaveDir_M5 : _ctxH4 ? l4_dir : l2_dir
 float _ctxOrig  = _ctxChart ? _cvOrig : _ctxH4 ? se240_inv : se60_inv
 int   _ctxSrc   = _ctxChart ? 0 : _ctxH4 ? 6 : 5
@@ -2400,7 +2401,7 @@ if barstate.islast and showCurve
     bool   _phaseAgree = _ownState != "—" and (str.contains(_ownState, "Expansion") == str.contains(ie1a_currentPhase, "Expansion")) and (str.contains(_ownState, "Retracement") == str.contains(ie1a_currentPhase, "Retracement"))
     string _ownLoc = (na(_ownOrig) or na(_ownExt)) ? "—" : str.tostring(math.round_to_mintick(_ownOrig)) + " → " + str.tostring(math.round_to_mintick(_ownExt)) + " → " + str.tostring(math.round_to_mintick(close))
     float  _retrFromX = (na(_ownOrig) or na(_ownExt) or _ownExt == _ownOrig) ? na : math.abs(_ownExt - close) / math.abs(_ownExt - _ownOrig) * 100.0
-    table.cell(treeT, 0, 0, "◤ CURVE TREE ▌ " + curveCtx + " root · recursion " + _liveDot, text_color = #d7faff, text_size = size.normal, text_halign = text.align_left, bgcolor = color.new(#0c4a6e, 12))
+    table.cell(treeT, 0, 0, "◤ CURVE TREE ▌ " + _ctxLbl + " root · recursion " + _liveDot, text_color = #d7faff, text_size = size.normal, text_halign = text.align_left, bgcolor = color.new(#0c4a6e, 12))
     table.cell(treeT, 1, 0, _odTx + "  d" + str.tostring(_ownDepthT), text_color = _ownDirT == 1 ? #34d399 : _ownDirT == -1 ? #fb7185 : #94a3b8, text_size = size.normal, bgcolor = color.new(#0c4a6e, 12))
     table.cell(treeT, 0, 1, "Recursion depth / budget", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
     table.cell(treeT, 1, 1, str.tostring(_treeDepth) + " / " + str.tostring(_curveBudgetDepth) + (gCurve.compress >= 75 ? "  (failure swing)" : gCurve.compress >= 50 ? "  (compressed)" : gCurve.compress >= 25 ? "  (medium)" : "  (wide)"), text_color = #c4b5fd, text_size = size.small)
