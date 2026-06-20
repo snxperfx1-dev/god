@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v48", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v49", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1488,6 +1488,11 @@ if array.size(_tree) > 0
     for _ti = 0 to array.size(_tree) - 1
         CurveNode _tn = array.get(_tree, _ti)
         if _tn.alive
+            // root (depth 0) mirrors its timeframe's CURRENT wave DIRECTION too, so a
+            // chart-wave flip flips the root (fixes stale dir → wrong extreme and a
+            // zero-height, invisible box when origin == extreme).
+            if _tn.depth == 0
+                _tn.dir := _tn.srcTf == 6 ? l4_dir : _tn.srcTf == 5 ? l2_dir : displayWaveDir_M5
             bool _prog = _tn.dir == 1 ? high > nz(_tn.extreme, high) : low < nz(_tn.extreme, low)
             // root (depth 0) mirrors its timeframe's live curve so its coordinates
             // match the MTF map; children track their own counter-move extreme.
