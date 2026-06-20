@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v28", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v29", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1425,7 +1425,10 @@ if array.size(_tree) > 0
 // dissipated curve gives birth to a new one — Axiom 0: dissipate → transition → recur)
 if _preOwn < 0 and displayWaveDir_M5 != 0 and not na(se5_inv)
     _nodeSeq += 1
-    array.push(_tree, CurveNode.new(_nodeSeq, -1, displayWaveDir_M5, se5_inv, close, math.max(40.0, nz(ede_expansionEnergy, 60.0)), true, 0, bar = bar_index))
+    // seed geometry FROM the engine's curve: origin = wave invalidation, extreme =
+    // the wave's actual reached extreme (cycle low/high) — NOT 'close', so the curve
+    // spans its full origin → furthest-point, not just the immediate move from price.
+    array.push(_tree, CurveNode.new(_nodeSeq, -1, displayWaveDir_M5, _cvOrig, _cvExt, math.max(40.0, nz(ede_expansionEnergy, 60.0)), true, 0, bar = bar_index))
 // event-generated CHILD: a Phase-2 CHoCH against the owner spawns an inverse curve
 if _preOwn >= 0
     CurveNode _po = array.get(_tree, _preOwn)
@@ -2267,6 +2270,8 @@ if barstate.islast and showTree
                 // single tag at the extreme: depth · emergent phase · price · energy
                 string _tag = "C" + str.tostring(_tn.depth) + (_tn.dir == 1 ? " ▲ " : " ▼ ") + _tn.state + "  " + str.tostring(math.round_to_mintick(_tn.extreme)) + " · e" + str.tostring(math.round(_tn.energy))
                 array.push(tree_lbls, label.new(_xr, _tn.extreme, _tag, style = label.style_label_left, color = color.new(_cc, math.min(55, 12 + _tn.depth * 16)), textcolor = #04130c, size = _tn.depth == 0 ? size.small : size.tiny))
+                // origin (birth) tag — names the start level the panel reports
+                array.push(tree_lbls, label.new(_xr, _tn.origin, "C" + str.tostring(_tn.depth) + " origin " + str.tostring(math.round_to_mintick(_tn.origin)), style = label.style_label_left, color = color.new(_cc, 80), textcolor = _cc, size = size.tiny))
 
 // ── Alerts (global scope) ─────────────────────────────────────────────────────
 alertcondition(gAction == "ATTACK" and gMaster == 1,  "Senseei ATTACK Long",  "Master Senseei: ATTACK long")
