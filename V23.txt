@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v30", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v31", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1444,9 +1444,13 @@ if _preOwn < 0 and _ctxDir != 0 and not na(_ctxOrig)
     array.push(_tree, CurveNode.new(_nodeSeq, -1, _ctxDir, _ctxOrig, _ctxExt, math.max(40.0, nz(ede_expansionEnergy, 60.0)), true, 0, bar = bar_index, srcTf = _ctxSrc))
 // event-generated CHILD: a chart-TF Phase-2 CHoCH against the owner spawns an
 // inverse curve — this is the lower-timeframe wave nesting INSIDE the HTF curve.
+// Principle 3/4 — COMPRESSION sets the recursion BUDGET: how many curves can form.
+// Wide curve → ~1 deep recursion; failure-swing (high compression) → up to 4 tiny
+// ones. A CHoCH only spawns a child while the recursion budget still has room.
+int _curveBudgetDepth = math.max(1, math.min(4, 1 + math.round(nz(gCurve.compress, 0.0) / 33.0)))
 if _preOwn >= 0
     CurveNode _po = array.get(_tree, _preOwn)
-    if (_po.dir == 1 and bearCHoCH) or (_po.dir == -1 and bullCHoCH)
+    if ((_po.dir == 1 and bearCHoCH) or (_po.dir == -1 and bullCHoCH)) and (_po.depth + 1 <= _curveBudgetDepth)
         _nodeSeq += 1
         array.push(_tree, CurveNode.new(_nodeSeq, _po.id, -_po.dir, close, close, math.max(25.0, nz(ede_expansionEnergy, 50.0) * 0.85), true, _po.depth + 1, bar = bar_index, srcTf = 0))
 // update living nodes — energy rises on progress (continuation), decays when stalled
@@ -2238,8 +2242,8 @@ if barstate.islast and showCurve
     string _ownLoc = (na(_ownOrig) or na(_ownExt)) ? "—" : str.tostring(math.round_to_mintick(_ownOrig)) + "  →  " + str.tostring(math.round_to_mintick(_ownExt))
     table.cell(treeT, 0, 0, "◤ CURVE TREE ▌ " + curveCtx + " root · recursion " + _liveDot, text_color = #d7faff, text_size = size.normal, text_halign = text.align_left, bgcolor = color.new(#0c4a6e, 12))
     table.cell(treeT, 1, 0, _odTx + "  d" + str.tostring(_ownDepthT), text_color = _ownDirT == 1 ? #34d399 : _ownDirT == -1 ? #fb7185 : #94a3b8, text_size = size.normal, bgcolor = color.new(#0c4a6e, 12))
-    table.cell(treeT, 0, 1, "Recursion depth (event)", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
-    table.cell(treeT, 1, 1, str.tostring(_treeDepth), text_color = #c4b5fd, text_size = size.small)
+    table.cell(treeT, 0, 1, "Recursion depth / budget", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
+    table.cell(treeT, 1, 1, str.tostring(_treeDepth) + " / " + str.tostring(_curveBudgetDepth) + (gCurve.compress >= 75 ? "  (failure swing)" : gCurve.compress >= 50 ? "  (compressed)" : gCurve.compress >= 25 ? "  (medium)" : "  (wide)"), text_color = #c4b5fd, text_size = size.small)
     table.cell(treeT, 0, 2, "Live curve nodes", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
     table.cell(treeT, 1, 2, str.tostring(_treeAlive), text_color = #e2e8f0, text_size = size.small)
     table.cell(treeT, 0, 3, "Owner energy (dominant)", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
