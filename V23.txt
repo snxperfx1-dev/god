@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v35", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v36", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1529,6 +1529,16 @@ float _cmpTighten = _cmpNow - nz(_cmpNow[5], _cmpNow)   // > 0 ⇒ pullback TIGH
 float _cpForce = math.max(0.0, math.min(100.0, _cmpNow * 0.50 + nz(gCurve.eRes, 0.0) * 0.20 - _treeDepth * 12.0 + math.max(0.0, _cmpTighten) * 0.8 + 8.0))
 string _cpState = _cpForce >= 60.0 ? "PERSISTING" : _cpForce <= 35.0 ? "LEAKING" : "NEUTRAL"
 string _cpTrend = _cmpTighten > 3.0 ? "↑ tightening" : _cmpTighten < -3.0 ? "↓ broadening" : "→ stable"
+// ── F72 — "IS THE TRADE ALIVE?" — the single judgement the art compresses to. ──
+//   From the owner curve's side: ALIVE while force persists, energy remains and the
+//   recursion budget is unspent; DEAD once the recursion completes, force leaks and
+//   compression broadens — at which point ownership has transferred and the correct
+//   action flips to the COUNTER side. This is the hold-vs-abandon call, every bar.
+bool  _recursionComplete = _curveBudgetDepth > 0 and _treeDepth >= _curveBudgetDepth
+float _life = math.max(0.0, math.min(100.0, _cpForce * 0.45 + nz(gCurve.eRes, 0.0) * 0.30 + (_cmpTighten > 0.0 ? 12.0 : 0.0) - (_recursionComplete ? 25.0 : 0.0) - (_cpState == "LEAKING" ? 20.0 : 0.0) + 10.0))
+string _aliveCounter = _ownDirT == 1 ? "▼ SHORT" : "▲ LONG"
+string _aliveTx  = _life >= 60.0 ? "● ALIVE · HOLD" : _life <= 32.0 ? "✕ DEAD · FLIP " + _aliveCounter : "◐ WEAKENING · MANAGE"
+color  _aliveCol = _life >= 60.0 ? #34d399 : _life <= 32.0 ? #fb7185 : #fbbf24
 // migrated ownership band — 0.5 / 0.618 retracement of the owner curve's leg
 float _mig50  = (na(_ownOrig) or na(_ownExt)) ? na : _ownExt + 0.5   * (_ownOrig - _ownExt)
 float _mig618 = (na(_ownOrig) or na(_ownExt)) ? na : _ownExt + 0.618 * (_ownOrig - _ownExt)
@@ -2270,7 +2280,7 @@ if barstate.islast and showCurve
 if barstate.islast and showCurve
     var table treeT = na
     if na(treeT)
-        treeT := table.new(position.middle_center, 2, 9, bgcolor = color.new(#0a0e27, 4), frame_color = color.new(#22d3ee, 25), frame_width = 2, border_width = 0)
+        treeT := table.new(position.middle_center, 2, 10, bgcolor = color.new(#0a0e27, 4), frame_color = color.new(#22d3ee, 25), frame_width = 2, border_width = 0)
     string _odTx = _ownDirT == 1 ? "▲ BULL" : _ownDirT == -1 ? "▼ BEAR" : "○ —"
     bool   _phaseAgree = _ownState != "—" and (str.contains(_ownState, "Expansion") == str.contains(ie1a_currentPhase, "Expansion")) and (str.contains(_ownState, "Retracement") == str.contains(ie1a_currentPhase, "Retracement"))
     string _ownLoc = (na(_ownOrig) or na(_ownExt)) ? "—" : str.tostring(math.round_to_mintick(_ownOrig)) + "  →  " + str.tostring(math.round_to_mintick(_ownExt))
@@ -2295,6 +2305,9 @@ if barstate.islast and showCurve
     table.cell(treeT, 1, 7, _cpState + "  " + str.tostring(math.round(_cpForce)) + "  " + _cpTrend, text_color = _cpState == "PERSISTING" ? #34d399 : _cpState == "LEAKING" ? #fb7185 : #fbbf24, text_size = size.small)
     table.cell(treeT, 0, 8, _cpState == "LEAKING" ? "Defends (origin in play)" : "Ownership migrated → defends", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
     table.cell(treeT, 1, 8, _cpState == "LEAKING" ? (na(_ownOrig) ? "—" : str.tostring(math.round_to_mintick(_ownOrig)) + " origin") : (na(_mig50) ? "—" : str.tostring(math.round_to_mintick(_mig618)) + "–" + str.tostring(math.round_to_mintick(_mig50)) + "  (0.618–0.5)"), text_color = _cpState == "LEAKING" ? #fda4af : #5eead4, text_size = size.small, text_halign = text.align_left)
+    // ── THE judgement: is the campaign still alive? hold vs abandon (flip) ──
+    table.cell(treeT, 0, 9, "TRADE ALIVE?  life " + str.tostring(math.round(_life)), text_color = #0a0e27, text_size = size.normal, text_halign = text.align_left, bgcolor = color.new(_aliveCol, 25))
+    table.cell(treeT, 1, 9, _aliveTx, text_color = #0a0e27, text_size = size.normal, bgcolor = color.new(_aliveCol, 25))
 
 // ── F72 — plot the CURVE TREE on the chart: each live curve as origin→extreme,
 //    coloured by direction, dashed when recursive (depth>0), tagged with its
@@ -2347,8 +2360,13 @@ if barstate.islast and showTree
             color _mc = _cpState == "PERSISTING" ? #5eead4 : #fbbf24
             array.push(tree_boxes, box.new(_mx0, _mig50, _mxr, _mig618, border_color = color.new(_mc, 40), border_width = 1, bgcolor = color.new(_mc, 82)))
             array.push(tree_lbls, label.new(_mxr, _mig618, (_cpState == "PERSISTING" ? "OWNERSHIP MIGRATED · defends 0.5–0.618 (extreme abandoned)" : "watch 0.5–0.618") + " · F" + str.tostring(math.round(_cpForce)) + " " + _cpTrend, style = label.style_label_left, color = color.new(_mc, 22), textcolor = #04130c, size = size.small))
+    // the hold-vs-flip verdict, on the chart at current price
+    array.push(tree_lbls, label.new(bar_index + 14, close, _aliveTx + "  (life " + str.tostring(math.round(_life)) + ")", style = label.style_label_left, color = color.new(_aliveCol, 18), textcolor = #0a0e27, size = size.normal))
 
 // ── Alerts (global scope) ─────────────────────────────────────────────────────
 alertcondition(gAction == "ATTACK" and gMaster == 1,  "Senseei ATTACK Long",  "Master Senseei: ATTACK long")
 alertcondition(gAction == "ATTACK" and gMaster == -1, "Senseei ATTACK Short", "Master Senseei: ATTACK short")
 alertcondition(gConflict > 60, "Senseei CONFLICT", "Master Senseei: engines in conflict")
+// F72 — the hold-vs-abandon moments: campaign dying (flip to counter) / reviving (hold)
+alertcondition(ta.crossunder(_life, 33.0), "Curve campaign DIED",  "F72: campaign died — ownership transferring, consider the counter side")
+alertcondition(ta.crossover(_life, 60.0),  "Curve campaign ALIVE", "F72: campaign alive — force persists, hold")
