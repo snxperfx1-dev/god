@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v24", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v25", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1408,8 +1408,9 @@ if array.size(_tree) > 0
         if _tn.alive and _tn.energy > _preE
             _preE := _tn.energy
             _preOwn := _ti
-// seed the root curve once a wave exists
-if array.size(_tree) == 0 and displayWaveDir_M5 != 0 and not na(se5_inv)
+// seed / RE-SEED the root curve whenever no living curve owns price (a fully
+// dissipated curve gives birth to a new one — Axiom 0: dissipate → transition → recur)
+if _preOwn < 0 and displayWaveDir_M5 != 0 and not na(se5_inv)
     _nodeSeq += 1
     array.push(_tree, CurveNode.new(_nodeSeq, -1, displayWaveDir_M5, se5_inv, close, math.max(40.0, nz(ede_expansionEnergy, 60.0)), true, 0))
 // event-generated CHILD: a Phase-2 CHoCH against the owner spawns an inverse curve
@@ -1425,7 +1426,7 @@ if array.size(_tree) > 0
         if _tn.alive
             bool _prog = _tn.dir == 1 ? high > nz(_tn.extreme, high) : low < nz(_tn.extreme, low)
             _tn.extreme := _tn.dir == 1 ? math.max(nz(_tn.extreme, high), high) : math.min(nz(_tn.extreme, low), low)
-            _tn.energy  := _prog ? math.min(100.0, _tn.energy + 7.0) : math.max(0.0, _tn.energy - 3.5)
+            _tn.energy  := _prog ? math.min(100.0, _tn.energy + 7.0) : math.max(0.0, _tn.energy - 2.0)
             _tn.state   := f_nodeState(_tn.dir, _tn.energy, _tn.depth, gCurve.compress, gCurve.maturity)
             if _tn.energy <= 2.0
                 _tn.alive := false
