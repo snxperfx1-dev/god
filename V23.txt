@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v46", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v47", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -2475,37 +2475,39 @@ if barstate.islast and showTree
             if _tn.alive and _tn.energy >= 10.0 and not na(_tn.origin) and not na(_tn.extreme)
                 color _cc = _tn.dir == 1 ? #34d399 : #fb7185
                 int   _x0 = math.max(_tn.bar, bar_index - 300)
-                int   _xr = bar_index + 5
+                int   _xr = bar_index + 4
                 float _hi = math.max(_tn.origin, _tn.extreme)
                 float _lo = math.min(_tn.origin, _tn.extreme)
-                // the curve's ENVIRONMENT (Principle 6) — its territory from birth → now
-                array.push(tree_boxes, box.new(_x0, _hi, _xr, _lo, border_color = color.new(_cc, _tn.depth == 0 ? 20 : 45), border_width = _tn.depth == 0 ? 2 : 1, border_style = _tn.depth == 0 ? line.style_solid : line.style_dashed, bgcolor = color.new(_cc, _tn.depth == 0 ? 84 : 91)))
+                // the curve's ENVIRONMENT (Principle 6) — the ROOT's origin→extreme box is
+                // RED and bold: the first thing the trader sees. Children stay faint/directional.
+                array.push(tree_boxes, box.new(_x0, _hi, _xr, _lo, border_color = _tn.depth == 0 ? color.new(#ff1f1f, 0) : color.new(_cc, 55), border_width = _tn.depth == 0 ? 3 : 1, border_style = _tn.depth == 0 ? line.style_solid : line.style_dashed, bgcolor = _tn.depth == 0 ? color.new(#ff1f1f, 90) : color.new(_cc, 93)))
                 // origin / invalidation level (birth) — dotted
                 array.push(tree_lines, line.new(_x0, _tn.origin, _xr, _tn.origin, color = color.new(_cc, 55), width = 1, style = line.style_dotted))
                 // extreme (current reach) level — solid for root, dashed for recursive child
                 array.push(tree_lines, line.new(_x0, _tn.extreme, _xr, _tn.extreme, color = color.new(_cc, 20), width = _tn.depth == 0 ? 2 : 1, style = _tn.depth == 0 ? line.style_solid : line.style_dashed))
                 // identity tag at the ORIGIN (birth) — depth · dir · emergent phase · origin price.
-                // The phase ("Point 4 Origin" etc.) describes where the curve was BORN, so it
-                // belongs at the origin — not at the extreme, where it read as a false origin.
+                // Suppressed for the owner when "ORIGIN IN PLAY" will label the same level (no overlap).
                 string _idTag = "C" + str.tostring(_tn.depth) + (_tn.dir == 1 ? " ▲ " : " ▼ ") + _tn.state + " · origin " + str.tostring(math.round_to_mintick(_tn.origin))
-                array.push(tree_lbls, label.new(_xr, _tn.origin, _idTag, style = label.style_label_left, color = color.new(_cc, _tn.depth == 0 ? 6 : 20), textcolor = #04130c, size = _tn.depth == 0 ? size.normal : size.small))
+                if _tn.depth <= 1 and not (_ti == _ownF and _cpState == "LEAKING" and not _progressing)
+                    array.push(tree_lbls, label.new(_xr, _tn.origin, _idTag, style = label.style_label_left, color = color.new(_cc, _tn.depth == 0 ? 6 : 20), textcolor = #04130c, size = _tn.depth == 0 ? size.normal : size.small))
                 // plain extreme marker — how far the curve has travelled · energy
-                array.push(tree_lbls, label.new(_xr, _tn.extreme, "C" + str.tostring(_tn.depth) + " extreme " + str.tostring(math.round_to_mintick(_tn.extreme)) + " · e" + str.tostring(math.round(_tn.energy)), style = label.style_label_left, color = color.new(_cc, _tn.depth == 0 ? 6 : 20), textcolor = #04130c, size = _tn.depth == 0 ? size.normal : size.small))
+                if _tn.depth <= 1
+                    array.push(tree_lbls, label.new(_xr, _tn.extreme, "C" + str.tostring(_tn.depth) + " extreme " + str.tostring(math.round_to_mintick(_tn.extreme)) + " · e" + str.tostring(math.round(_tn.energy)), style = label.style_label_left, color = color.new(_cc, _tn.depth == 0 ? 6 : 20), textcolor = #04130c, size = _tn.depth == 0 ? size.normal : size.small))
     // ── Principle 10 — draw WHERE ownership defends: the migrated 0.5–0.618 band of
     //    the owner's leg (extreme abandoned) when force persists, or the origin when
-    //    force is leaking (return-to-extreme risk). ─────────────────────────────────
+    //    force is leaking (return-to-extreme risk). Own lanes so labels never overlap.
     if not na(_ownExt) and not na(_ownOrig)
         int _mx0 = bar_index - 60
-        int _mxr = bar_index + 5
-        if _cpState == "LEAKING"
-            array.push(tree_lines, line.new(_mx0, _ownOrig, _mxr, _ownOrig, color = color.new(#fb7185, 25), width = 2))
+        int _mxr = bar_index + 22
+        if _cpState == "LEAKING" and not _progressing
+            array.push(tree_lines, line.new(_mx0, _ownOrig, bar_index + 4, _ownOrig, color = color.new(#fb7185, 25), width = 2))
             array.push(tree_lbls, label.new(_mxr, _ownOrig, "ORIGIN IN PLAY · force leaking " + str.tostring(math.round_to_mintick(_ownOrig)), style = label.style_label_left, color = color.new(#fb7185, 20), textcolor = #160406, size = size.small))
         else if not na(_mig50) and not na(_mig618)
             color _mc = _cpState == "PERSISTING" ? #5eead4 : #fbbf24
-            array.push(tree_boxes, box.new(_mx0, _mig50, _mxr, _mig618, border_color = color.new(_mc, 40), border_width = 1, bgcolor = color.new(_mc, 82)))
-            array.push(tree_lbls, label.new(_mxr, _mig618, (_cpState == "PERSISTING" ? "OWNERSHIP MIGRATED · defends 0.5–0.618 (extreme abandoned)" : "watch 0.5–0.618") + " · F" + str.tostring(math.round(_cpForce)) + " " + _cpTrend, style = label.style_label_left, color = color.new(_mc, 22), textcolor = #04130c, size = size.small))
-    // the hold-vs-flip verdict, on the chart at current price
-    array.push(tree_lbls, label.new(bar_index + 14, close, _aliveTx + "  (life " + str.tostring(math.round(_life)) + ")", style = label.style_label_left, color = color.new(_aliveCol, 18), textcolor = #0a0e27, size = size.small))
+            array.push(tree_boxes, box.new(_mx0, _mig50, bar_index + 4, _mig618, border_color = color.new(_mc, 40), border_width = 1, bgcolor = color.new(_mc, 82)))
+            array.push(tree_lbls, label.new(_mxr, _mig618, (_cpState == "PERSISTING" ? "OWNERSHIP MIGRATED · defends 0.5–0.618" : "watch 0.5–0.618") + " · F" + str.tostring(math.round(_cpForce)) + " " + _cpTrend, style = label.style_label_left, color = color.new(_mc, 22), textcolor = #04130c, size = size.small))
+    // the hold-vs-flip verdict — far-right lane so it never overlaps the curve labels
+    array.push(tree_lbls, label.new(bar_index + 42, close, _aliveTx + "  (life " + str.tostring(math.round(_life)) + ")", style = label.style_label_left, color = color.new(_aliveCol, 18), textcolor = #0a0e27, size = size.small))
 
 // ── Alerts (global scope) ─────────────────────────────────────────────────────
 alertcondition(gAction == "ATTACK" and gMaster == 1,  "Senseei ATTACK Long",  "Master Senseei: ATTACK long")
