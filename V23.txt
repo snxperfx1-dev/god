@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v49", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v50", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1400,6 +1400,17 @@ float _ext5   = l0_dir == 1 ? se5_sh   : l0_dir == -1 ? se5_sl   : na
 float _ext15  = l1_dir == 1 ? se15_sh  : l1_dir == -1 ? se15_sl  : na
 float _ext60  = l2_dir == 1 ? se60_sh  : l2_dir == -1 ? se60_sl  : na
 float _ext240 = l4_dir == 1 ? se240_sh : l4_dir == -1 ? se240_sl : na
+// bar at which each timeframe's CURRENT wave began (origin/seN_inv last changed) —
+// so the curve box spans only its own leg, not the whole chart.
+var int _bar5   = bar_index
+var int _bar60  = bar_index
+var int _bar240 = bar_index
+if na(se5_inv[1])   or se5_inv   != se5_inv[1]
+    _bar5   := bar_index
+if na(se60_inv[1])  or se60_inv  != se60_inv[1]
+    _bar60  := bar_index
+if na(se240_inv[1]) or se240_inv != se240_inv[1]
+    _bar240 := bar_index
 
 // ══════════════════════════════════════════════════════════════════════════════
 // F72 — RECURSIVE CURVE TREE  (event-generated CurveNodes — the real engine seed)
@@ -1493,6 +1504,7 @@ if array.size(_tree) > 0
             // zero-height, invisible box when origin == extreme).
             if _tn.depth == 0
                 _tn.dir := _tn.srcTf == 6 ? l4_dir : _tn.srcTf == 5 ? l2_dir : displayWaveDir_M5
+                _tn.bar := _tn.srcTf == 6 ? _bar240 : _tn.srcTf == 5 ? _bar60 : _bar5
             bool _prog = _tn.dir == 1 ? high > nz(_tn.extreme, high) : low < nz(_tn.extreme, low)
             // root (depth 0) mirrors its timeframe's live curve so its coordinates
             // match the MTF map; children track their own counter-move extreme.
@@ -2477,27 +2489,20 @@ if barstate.islast and showTree
     if array.size(_tree) > 0
         for _ti = 0 to array.size(_tree) - 1
             CurveNode _tn = array.get(_tree, _ti)
-            if _tn.alive and _tn.energy >= 10.0 and not na(_tn.origin) and not na(_tn.extreme)
-                color _cc = _tn.dir == 1 ? #34d399 : #fb7185
+            if _tn.depth == 0 and _tn.alive and not na(_tn.origin) and not na(_tn.extreme)
                 int   _x0 = math.max(_tn.bar, bar_index - 300)
                 int   _xr = bar_index + 4
                 float _hi = math.max(_tn.origin, _tn.extreme)
                 float _lo = math.min(_tn.origin, _tn.extreme)
-                // the curve's ENVIRONMENT (Principle 6) — the ROOT's origin→extreme box is
-                // RED and bold: the first thing the trader sees. Children stay faint/directional.
-                array.push(tree_boxes, box.new(_x0, _hi, _xr, _lo, border_color = _tn.depth == 0 ? color.new(#ff1f1f, 0) : color.new(_cc, 55), border_width = _tn.depth == 0 ? 3 : 1, border_style = _tn.depth == 0 ? line.style_solid : line.style_dashed, bgcolor = _tn.depth == 0 ? color.new(#ff1f1f, 90) : color.new(_cc, 93)))
-                // origin / invalidation level (birth) — dotted
-                array.push(tree_lines, line.new(_x0, _tn.origin, _xr, _tn.origin, color = color.new(_cc, 55), width = 1, style = line.style_dotted))
-                // extreme (current reach) level — solid for root, dashed for recursive child
-                array.push(tree_lines, line.new(_x0, _tn.extreme, _xr, _tn.extreme, color = color.new(_cc, 20), width = _tn.depth == 0 ? 2 : 1, style = _tn.depth == 0 ? line.style_solid : line.style_dashed))
-                // identity tag at the ORIGIN (birth) — depth · dir · emergent phase · origin price.
-                // Suppressed for the owner when "ORIGIN IN PLAY" will label the same level (no overlap).
-                string _idTag = "C" + str.tostring(_tn.depth) + (_tn.dir == 1 ? " ▲ " : " ▼ ") + _tn.state + " · origin " + str.tostring(math.round_to_mintick(_tn.origin))
-                if _tn.depth <= 1 and not (_ti == _ownF and _cpState == "LEAKING" and not _progressing)
-                    array.push(tree_lbls, label.new(_xr, _tn.origin, _idTag, style = label.style_label_left, color = color.new(_cc, _tn.depth == 0 ? 6 : 20), textcolor = #04130c, size = _tn.depth == 0 ? size.normal : size.small))
-                // plain extreme marker — how far the curve has travelled · energy
-                if _tn.depth <= 1
-                    array.push(tree_lbls, label.new(_xr, _tn.extreme, "C" + str.tostring(_tn.depth) + " extreme " + str.tostring(math.round_to_mintick(_tn.extreme)) + " · e" + str.tostring(math.round(_tn.energy)), style = label.style_label_left, color = color.new(_cc, _tn.depth == 0 ? 6 : 20), textcolor = #04130c, size = _tn.depth == 0 ? size.normal : size.small))
+                // ROOT origin→extreme box — bold RED border, NO fill. The hero element,
+                // spanning only this curve's leg (its wave-start bar → now).
+                array.push(tree_boxes, box.new(_x0, _hi, _xr, _lo, border_color = color.new(#ff1f1f, 0), border_width = 3, bgcolor = color.new(#ff1f1f, 100)))
+                // red-font labels at the box edges (price-action info). Origin suppressed when
+                // "ORIGIN IN PLAY" labels the same level (no overlap).
+                string _idTag = "C0 " + (_tn.dir == 1 ? "▲ " : "▼ ") + _tn.state + " · origin " + str.tostring(math.round_to_mintick(_tn.origin))
+                if not (_cpState == "LEAKING" and not _progressing)
+                    array.push(tree_lbls, label.new(_xr, _tn.origin, _idTag, style = label.style_label_left, color = color.new(#0a0e27, 25), textcolor = #ff3b3b, size = size.normal))
+                array.push(tree_lbls, label.new(_xr, _tn.extreme, "C0 extreme " + str.tostring(math.round_to_mintick(_tn.extreme)) + " · e" + str.tostring(math.round(_tn.energy)), style = label.style_label_left, color = color.new(#0a0e27, 25), textcolor = #ff3b3b, size = size.normal))
     // ── Principle 10 — draw WHERE ownership defends: the migrated 0.5–0.618 band of
     //    the owner's leg (extreme abandoned) when force persists, or the origin when
     //    force is leaking (return-to-extreme risk). Own lanes so labels never overlap.
