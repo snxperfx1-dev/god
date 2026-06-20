@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v25", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v26", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -35,6 +35,7 @@ bool   showMatrix  = input.bool (true, "Show Wave Matrix panel (bottom-center)",
 bool   showCampaign = input.bool(true, "Show Campaign Ownership panel (F72, middle-left)", group = GRP)
 bool   showParticipants = input.bool(true, "Show Participant interference zones (0.618/0.70/0.786 + flip)", group = GRP)
 bool   showCurve   = input.bool(true, "Show Curve object — energy state (F72 foundation, middle-right)", group = GRP)
+bool   showTree    = input.bool(true, "Plot CURVE TREE on chart (live curves · origin→extreme · emergent phase)", group = GRP)
 int    minConf     = input.int  (55,  "Min confidence to ATTACK",     group = GRP, minval = 0, maxval = 100)
 int    pivLen      = input.int  (8,   "Wave pivot length",            group = GRP, minval = 2, maxval = 50)
 bool   showRegions = input.bool (true, "Show phase REGION labels",    group = GRP)
@@ -1389,6 +1390,7 @@ type CurveNode
     bool   alive   = true
     int    depth   = 0
     string state   = ""      // F72 step 1: the PHASE the curve owns (emergent, Principle 1/14)
+    int    bar     = 0       // bar_index at birth — anchors the curve on the chart
 // ── f_nodeState — phases EMERGE from the node (Principle 1: curve → phase) ─────
 //   Maps the node's own energy / lifecycle / recursion depth (+ ambient curve
 //   compression & maturity) onto a Principle-14 phase label. Recursion depth > 0
@@ -1412,13 +1414,13 @@ if array.size(_tree) > 0
 // dissipated curve gives birth to a new one — Axiom 0: dissipate → transition → recur)
 if _preOwn < 0 and displayWaveDir_M5 != 0 and not na(se5_inv)
     _nodeSeq += 1
-    array.push(_tree, CurveNode.new(_nodeSeq, -1, displayWaveDir_M5, se5_inv, close, math.max(40.0, nz(ede_expansionEnergy, 60.0)), true, 0))
+    array.push(_tree, CurveNode.new(_nodeSeq, -1, displayWaveDir_M5, se5_inv, close, math.max(40.0, nz(ede_expansionEnergy, 60.0)), true, 0, bar = bar_index))
 // event-generated CHILD: a Phase-2 CHoCH against the owner spawns an inverse curve
 if _preOwn >= 0
     CurveNode _po = array.get(_tree, _preOwn)
     if (_po.dir == 1 and bearCHoCH) or (_po.dir == -1 and bullCHoCH)
         _nodeSeq += 1
-        array.push(_tree, CurveNode.new(_nodeSeq, _po.id, -_po.dir, close, close, math.max(25.0, nz(ede_expansionEnergy, 50.0) * 0.85), true, _po.depth + 1))
+        array.push(_tree, CurveNode.new(_nodeSeq, _po.id, -_po.dir, close, close, math.max(25.0, nz(ede_expansionEnergy, 50.0) * 0.85), true, _po.depth + 1, bar = bar_index))
 // update living nodes — energy rises on progress (continuation), decays when stalled
 if array.size(_tree) > 0
     for _ti = 0 to array.size(_tree) - 1
@@ -1451,6 +1453,8 @@ int   _ownDepthT = _ownF >= 0 ? array.get(_tree, _ownF).depth  : 0
 float _ownNrgT   = _ownF >= 0 ? array.get(_tree, _ownF).energy : 0.0
 // F72 step 1: the phase the OWNING curve emits — derived from the node, not a machine
 string _ownState = _ownF >= 0 ? array.get(_tree, _ownF).state : "—"
+float  _ownOrig  = _ownF >= 0 ? array.get(_tree, _ownF).origin  : na
+float  _ownExt   = _ownF >= 0 ? array.get(_tree, _ownF).extreme : na
 
 // ── Drawing objects + hoisted state for global alerts ────────────────────────
 var array<line>  net_lines = array.new<line>()
@@ -1460,6 +1464,8 @@ var array<line>  hud_lines = array.new<line>()
 var array<label> hud_lbls  = array.new<label>()
 var array<line>  part_lines = array.new<line>()
 var array<label> part_lbls  = array.new<label>()
+var array<line>  tree_lines = array.new<line>()
+var array<label> tree_lbls  = array.new<label>()
 var box          fezBox    = na
 var label        vLbl      = na
 var int    gMaster   = 0
@@ -2186,9 +2192,10 @@ if barstate.islast and showCurve
 if barstate.islast and showCurve
     var table treeT = na
     if na(treeT)
-        treeT := table.new(position.middle_center, 2, 6, bgcolor = color.new(#0a0e27, 4), frame_color = color.new(#22d3ee, 25), frame_width = 2, border_width = 0)
+        treeT := table.new(position.middle_center, 2, 7, bgcolor = color.new(#0a0e27, 4), frame_color = color.new(#22d3ee, 25), frame_width = 2, border_width = 0)
     string _odTx = _ownDirT == 1 ? "▲ BULL" : _ownDirT == -1 ? "▼ BEAR" : "○ —"
     bool   _phaseAgree = _ownState != "—" and (str.contains(_ownState, "Expansion") == str.contains(ie1a_currentPhase, "Expansion")) and (str.contains(_ownState, "Retracement") == str.contains(ie1a_currentPhase, "Retracement"))
+    string _ownLoc = (na(_ownOrig) or na(_ownExt)) ? "—" : str.tostring(math.round_to_mintick(_ownOrig)) + "  →  " + str.tostring(math.round_to_mintick(_ownExt))
     table.cell(treeT, 0, 0, "◤ CURVE TREE ▌ event-recursion " + _liveDot, text_color = #d7faff, text_size = size.normal, text_halign = text.align_left, bgcolor = color.new(#0c4a6e, 12))
     table.cell(treeT, 1, 0, _odTx + "  d" + str.tostring(_ownDepthT), text_color = _ownDirT == 1 ? #34d399 : _ownDirT == -1 ? #fb7185 : #94a3b8, text_size = size.normal, bgcolor = color.new(#0c4a6e, 12))
     table.cell(treeT, 0, 1, "Recursion depth (event)", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
@@ -2197,11 +2204,44 @@ if barstate.islast and showCurve
     table.cell(treeT, 1, 2, str.tostring(_treeAlive), text_color = #e2e8f0, text_size = size.small)
     table.cell(treeT, 0, 3, "Owner energy (dominant)", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
     table.cell(treeT, 1, 3, f_gauge(_ownNrgT) + " " + str.tostring(math.round(_ownNrgT)), text_color = _ownNrgT > 50 ? #34d399 : #fbbf24, text_size = size.small)
+    // ── WHERE the owning curve lives — origin (birth) → current extreme price ──
+    table.cell(treeT, 0, 4, "Owner curve (origin→extreme)", text_color = #fbbf24, text_size = size.small, text_halign = text.align_left)
+    table.cell(treeT, 1, 4, _ownLoc, text_color = #fde68a, text_size = size.small, text_halign = text.align_left)
     // ── F72 step 1: phases EMERGE from the curve (read the node) vs the legacy machine ──
-    table.cell(treeT, 0, 4, "Phase ← curve (emergent)", text_color = #5eead4, text_size = size.small, text_halign = text.align_left)
-    table.cell(treeT, 1, 4, _ownState, text_color = #5eead4, text_size = size.small, text_halign = text.align_left)
-    table.cell(treeT, 0, 5, "Phase ← machine (legacy)", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
-    table.cell(treeT, 1, 5, ie1a_currentPhase + (_phaseAgree ? "  ✓" : "  ≠"), text_color = _phaseAgree ? #34d399 : #fbbf24, text_size = size.small, text_halign = text.align_left)
+    table.cell(treeT, 0, 5, "Phase ← curve (emergent)", text_color = #5eead4, text_size = size.small, text_halign = text.align_left)
+    table.cell(treeT, 1, 5, _ownState, text_color = #5eead4, text_size = size.small, text_halign = text.align_left)
+    table.cell(treeT, 0, 6, "Phase ← machine (legacy)", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
+    table.cell(treeT, 1, 6, ie1a_currentPhase + (_phaseAgree ? "  ✓" : "  ≠"), text_color = _phaseAgree ? #34d399 : #fbbf24, text_size = size.small, text_halign = text.align_left)
+
+// ── F72 — plot the CURVE TREE on the chart: each live curve as origin→extreme,
+//    coloured by direction, dashed when recursive (depth>0), tagged with its
+//    emergent phase + the actual price. This is "where it's happening". ─────────
+if barstate.islast and showTree
+    if array.size(tree_lines) > 0
+        for _i = 0 to array.size(tree_lines) - 1
+            line.delete(array.get(tree_lines, _i))
+        array.clear(tree_lines)
+    if array.size(tree_lbls) > 0
+        for _i = 0 to array.size(tree_lbls) - 1
+            label.delete(array.get(tree_lbls, _i))
+        array.clear(tree_lbls)
+    if array.size(_tree) > 0
+        for _ti = 0 to array.size(_tree) - 1
+            CurveNode _tn = array.get(_tree, _ti)
+            if _tn.alive and not na(_tn.origin) and not na(_tn.extreme)
+                color _cc = _tn.dir == 1 ? #34d399 : #fb7185
+                int   _x0 = math.max(_tn.bar, bar_index - 300)
+                int   _transp = math.min(70, 18 + _tn.depth * 18)
+                // the curve's displacement vector: origin (birth) → current extreme
+                line _ln = line.new(_x0, _tn.origin, bar_index, _tn.extreme, color = color.new(_cc, _transp), width = _tn.depth == 0 ? 3 : 2, style = _tn.depth == 0 ? line.style_solid : line.style_dashed)
+                array.push(tree_lines, _ln)
+                // origin (birth) marker — faint horizontal ray
+                array.push(tree_lines, line.new(_x0, _tn.origin, bar_index, _tn.origin, color = color.new(_cc, 78), width = 1, style = line.style_dotted))
+                // tag at the extreme: depth · emergent phase · price
+                string _tag = "C" + str.tostring(_tn.depth) + (_tn.dir == 1 ? " ▲ " : " ▼ ") + _tn.state + "  " + str.tostring(math.round_to_mintick(_tn.extreme)) + "  · e" + str.tostring(math.round(_tn.energy))
+                array.push(tree_lbls, label.new(bar_index, _tn.extreme, _tag, style = _tn.dir == 1 ? label.style_label_lower_left : label.style_label_upper_left, color = color.new(_cc, math.min(60, 12 + _tn.depth * 16)), textcolor = #04130c, size = _tn.depth == 0 ? size.small : size.tiny))
+                // origin price tag
+                array.push(tree_lbls, label.new(_x0, _tn.origin, "origin " + str.tostring(math.round_to_mintick(_tn.origin)), style = label.style_label_right, color = color.new(_cc, 85), textcolor = _cc, size = size.tiny))
 
 // ── Alerts (global scope) ─────────────────────────────────────────────────────
 alertcondition(gAction == "ATTACK" and gMaster == 1,  "Senseei ATTACK Long",  "Master Senseei: ATTACK long")
