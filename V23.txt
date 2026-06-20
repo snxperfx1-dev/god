@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v32", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v33", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1197,7 +1197,26 @@ f_regCol(string _p) =>
      str.contains(_p, "Expansion Pre-Convexity") ? #22d3ee :
      str.contains(_p, "Expansion")               ? #34d399 :
      #94a3b8
-f_regTxt(string _p) => str.upper(str.replace_all(_p, " • ", "  —  "))
+f_regTxt(string _p) =>
+     (str.contains(_p, "Expansion") and str.contains(_p, "Pre-Convexity")) ? "EXP·PRE-CVX" :
+     (str.contains(_p, "Retracement") and str.contains(_p, "Pre-Convexity")) ? "RETR·PRE-CVX" :
+     (str.contains(_p, "Expansion") and str.contains(_p, "Induction"))  ? "EXP·INDUCT" :
+     (str.contains(_p, "Expansion") and str.contains(_p, "Liquidity"))  ? "EXP·LIQ" :
+     (str.contains(_p, "Retracement") and str.contains(_p, "Induction")) ? "RETR·INDUCT" :
+     (str.contains(_p, "Retracement") and str.contains(_p, "Liquidity")) ? "RETR·LIQ" :
+     _p == "Expansion"      ? "EXPANSION" :
+     _p == "Retracement"    ? "RETRACE" :
+     _p == "New High"       ? "NEW HIGH" :
+     _p == "New Low"        ? "NEW LOW" :
+     _p == "Transition"     ? "TRANS" :
+     _p == "HTF Flip Zone"  ? "HTF FLIP" :
+     _p == "Induction"      ? "INDUCT" :
+     _p == "Liquidation"    ? "LIQUIDATE" :
+     _p == "Terminal Curve" ? "TERMINAL" :
+     _p == "Demand Return"  ? "DMD RTN" :
+     _p == "Supply Return"  ? "SUP RTN" :
+     _p == "Point 4 Origin" ? "P4 ORIGIN" :
+     str.upper(str.replace_all(_p, " • ", " — "))
 
 var array<box>   _regBoxes = array.new<box>()
 var array<label> _regLbls  = array.new<label>()
@@ -1226,7 +1245,7 @@ if showRegions and barstate.isconfirmed
         if _pendCount >= regionConfirmBars
             color _fc = f_regCol(_regPhase)
             box _fbx = box.new(_regStart, nz(_regHi, high), bar_index, nz(_regLo, low), border_color = color.new(_fc, 45), border_width = 1, bgcolor = color.new(_fc, 89))
-            label _flb = label.new(math.round((_regStart + bar_index) / 2), nz(_regHi, high), f_regTxt(_regPhase), style = label.style_label_down, color = color.new(_fc, 22), textcolor = #0d1117, size = size.small)
+            label _flb = label.new(math.round((_regStart + bar_index) / 2), nz(_regHi, high), f_regTxt(_regPhase), style = label.style_label_down, color = color.new(_fc, 22), textcolor = #0d1117, size = size.tiny)
             array.push(_regBoxes, _fbx)
             array.push(_regLbls, _flb)
             if array.size(_regBoxes) > 40
@@ -1250,7 +1269,7 @@ if showRegions and barstate.islast and _regPhase != ""
     float _llo = math.min(nz(_regLo, low), low)
     if na(_regLiveBox)
         _regLiveBox := box.new(_regStart, _lhi, bar_index + 2, _llo, border_color = color.new(_lc, 25), border_width = 2, bgcolor = color.new(_lc, 82))
-        _regLiveLbl := label.new(bar_index + 2, _lhi, f_regTxt(_regPhase) + (displaySub != "" ? "\n" + displaySub : ""), style = label.style_label_left, color = color.new(_lc, 10), textcolor = #0d1117, size = size.normal)
+        _regLiveLbl := label.new(bar_index + 2, _lhi, f_regTxt(_regPhase) + (displaySub != "" ? "\n" + displaySub : ""), style = label.style_label_left, color = color.new(_lc, 10), textcolor = #0d1117, size = size.small)
     else
         box.set_lefttop(_regLiveBox, _regStart, _lhi)
         box.set_rightbottom(_regLiveBox, bar_index + 2, _llo)
