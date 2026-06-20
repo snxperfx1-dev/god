@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v42", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v43", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1244,8 +1244,8 @@ if showRegions and barstate.isconfirmed
             _pendCount := 1
         if _pendCount >= regionConfirmBars
             color _fc = f_regCol(_regPhase)
-            box _fbx = box.new(_regStart, nz(_regHi, high), bar_index, nz(_regLo, low), border_color = color.new(_fc, 45), border_width = 1, bgcolor = color.new(_fc, 89))
-            label _flb = label.new(math.round((_regStart + bar_index) / 2), nz(_regHi, high), f_regTxt(_regPhase), style = label.style_label_down, color = color.new(_fc, 22), textcolor = #0d1117, size = size.tiny)
+            box _fbx = box.new(_regStart, nz(_regHi, high), bar_index, nz(_regLo, low), border_color = color.new(_fc, 74), border_width = 1, bgcolor = color.new(_fc, 94))
+            label _flb = label.new(math.round((_regStart + bar_index) / 2), nz(_regHi, high), f_regTxt(_regPhase), style = label.style_label_down, color = color.new(_fc, 62), textcolor = #64748b, size = size.tiny)
             array.push(_regBoxes, _fbx)
             array.push(_regLbls, _flb)
             if array.size(_regBoxes) > 40
@@ -1268,16 +1268,16 @@ if showRegions and barstate.islast and _regPhase != ""
     float _lhi = math.max(nz(_regHi, high), high)
     float _llo = math.min(nz(_regLo, low), low)
     if na(_regLiveBox)
-        _regLiveBox := box.new(_regStart, _lhi, bar_index + 2, _llo, border_color = color.new(_lc, 25), border_width = 2, bgcolor = color.new(_lc, 82))
-        _regLiveLbl := label.new(bar_index + 2, _lhi, f_regTxt(_regPhase) + (displaySub != "" ? "\n" + displaySub : ""), style = label.style_label_left, color = color.new(_lc, 10), textcolor = #0d1117, size = size.small)
+        _regLiveBox := box.new(_regStart, _lhi, bar_index + 2, _llo, border_color = color.new(_lc, 52), border_width = 1, bgcolor = color.new(_lc, 90))
+        _regLiveLbl := label.new(bar_index + 2, _lhi, f_regTxt(_regPhase) + (displaySub != "" ? "\n" + displaySub : ""), style = label.style_label_left, color = color.new(_lc, 45), textcolor = #334155, size = size.small)
     else
         box.set_lefttop(_regLiveBox, _regStart, _lhi)
         box.set_rightbottom(_regLiveBox, bar_index + 2, _llo)
-        box.set_border_color(_regLiveBox, color.new(_lc, 25))
-        box.set_bgcolor(_regLiveBox, color.new(_lc, 82))
+        box.set_border_color(_regLiveBox, color.new(_lc, 52))
+        box.set_bgcolor(_regLiveBox, color.new(_lc, 90))
         label.set_xy(_regLiveLbl, bar_index + 2, _lhi)
         label.set_text(_regLiveLbl, f_regTxt(_regPhase) + (displaySub != "" ? "\n" + displaySub : ""))
-        label.set_color(_regLiveLbl, color.new(_lc, 10))
+        label.set_color(_regLiveLbl, color.new(_lc, 45))
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ENGINE 8.0 — TIME INTELLIGENCE ENGINE (TIE) — full 5-cycle stack + sub-engines
@@ -2459,7 +2459,7 @@ if barstate.islast and showTree
                 float _hi = math.max(_tn.origin, _tn.extreme)
                 float _lo = math.min(_tn.origin, _tn.extreme)
                 // the curve's ENVIRONMENT (Principle 6) — its territory from birth → now
-                array.push(tree_boxes, box.new(_x0, _hi, _xr, _lo, border_color = color.new(_cc, _tn.depth == 0 ? 55 : 35), border_width = 1, border_style = _tn.depth == 0 ? line.style_solid : line.style_dashed, bgcolor = color.new(_cc, _tn.depth == 0 ? 94 : 90)))
+                array.push(tree_boxes, box.new(_x0, _hi, _xr, _lo, border_color = color.new(_cc, _tn.depth == 0 ? 20 : 45), border_width = _tn.depth == 0 ? 2 : 1, border_style = _tn.depth == 0 ? line.style_solid : line.style_dashed, bgcolor = color.new(_cc, _tn.depth == 0 ? 84 : 91)))
                 // origin / invalidation level (birth) — dotted
                 array.push(tree_lines, line.new(_x0, _tn.origin, _xr, _tn.origin, color = color.new(_cc, 55), width = 1, style = line.style_dotted))
                 // extreme (current reach) level — solid for root, dashed for recursive child
@@ -2468,9 +2468,9 @@ if barstate.islast and showTree
                 // The phase ("Point 4 Origin" etc.) describes where the curve was BORN, so it
                 // belongs at the origin — not at the extreme, where it read as a false origin.
                 string _idTag = "C" + str.tostring(_tn.depth) + (_tn.dir == 1 ? " ▲ " : " ▼ ") + _tn.state + " · origin " + str.tostring(math.round_to_mintick(_tn.origin))
-                array.push(tree_lbls, label.new(_xr, _tn.origin, _idTag, style = label.style_label_left, color = color.new(_cc, math.min(55, 12 + _tn.depth * 16)), textcolor = #04130c, size = _tn.depth == 0 ? size.small : size.tiny))
+                array.push(tree_lbls, label.new(_xr, _tn.origin, _idTag, style = label.style_label_left, color = color.new(_cc, _tn.depth == 0 ? 6 : 20), textcolor = #04130c, size = _tn.depth == 0 ? size.normal : size.small))
                 // plain extreme marker — how far the curve has travelled · energy
-                array.push(tree_lbls, label.new(_xr, _tn.extreme, "C" + str.tostring(_tn.depth) + " extreme " + str.tostring(math.round_to_mintick(_tn.extreme)) + " · e" + str.tostring(math.round(_tn.energy)), style = label.style_label_left, color = color.new(_cc, 80), textcolor = _cc, size = size.tiny))
+                array.push(tree_lbls, label.new(_xr, _tn.extreme, "C" + str.tostring(_tn.depth) + " extreme " + str.tostring(math.round_to_mintick(_tn.extreme)) + " · e" + str.tostring(math.round(_tn.energy)), style = label.style_label_left, color = color.new(_cc, _tn.depth == 0 ? 6 : 20), textcolor = #04130c, size = _tn.depth == 0 ? size.normal : size.small))
     // ── Principle 10 — draw WHERE ownership defends: the migrated 0.5–0.618 band of
     //    the owner's leg (extreme abandoned) when force persists, or the origin when
     //    force is leaking (return-to-extreme risk). ─────────────────────────────────
@@ -2485,7 +2485,7 @@ if barstate.islast and showTree
             array.push(tree_boxes, box.new(_mx0, _mig50, _mxr, _mig618, border_color = color.new(_mc, 40), border_width = 1, bgcolor = color.new(_mc, 82)))
             array.push(tree_lbls, label.new(_mxr, _mig618, (_cpState == "PERSISTING" ? "OWNERSHIP MIGRATED · defends 0.5–0.618 (extreme abandoned)" : "watch 0.5–0.618") + " · F" + str.tostring(math.round(_cpForce)) + " " + _cpTrend, style = label.style_label_left, color = color.new(_mc, 22), textcolor = #04130c, size = size.small))
     // the hold-vs-flip verdict, on the chart at current price
-    array.push(tree_lbls, label.new(bar_index + 14, close, _aliveTx + "  (life " + str.tostring(math.round(_life)) + ")", style = label.style_label_left, color = color.new(_aliveCol, 18), textcolor = #0a0e27, size = size.normal))
+    array.push(tree_lbls, label.new(bar_index + 14, close, _aliveTx + "  (life " + str.tostring(math.round(_life)) + ")", style = label.style_label_left, color = color.new(_aliveCol, 18), textcolor = #0a0e27, size = size.small))
 
 // ── Alerts (global scope) ─────────────────────────────────────────────────────
 alertcondition(gAction == "ATTACK" and gMaster == 1,  "Senseei ATTACK Long",  "Master Senseei: ATTACK long")
