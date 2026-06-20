@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v39", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v40", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1557,6 +1557,8 @@ var string _lastVote   = "—"
 var int    _supVotes   = 0
 var int    _degVotes   = 0
 var array<float> _seqRetr = array.new<float>()
+var array<float> _lifeSeq = array.new<float>()
+var float  _wholeChainLife = 50.0
 if _ownDirT != _narrDir
     _narrDir    := _ownDirT
     _legX       := _ownDirT == 1 ? high : _ownDirT == -1 ? low : na
@@ -1566,6 +1568,7 @@ if _ownDirT != _narrDir
     _degVotes   := 0
     _lastVote   := "—"
     array.clear(_seqRetr)
+    array.clear(_lifeSeq)
 if _ownDirT != 0 and not na(_ownOrig)
     bool _newLegX = _ownDirT == 1 ? high > nz(_legX, high) : low < nz(_legX, low)
     if _newLegX
@@ -1580,6 +1583,9 @@ if _ownDirT != 0 and not na(_ownOrig)
             array.push(_seqRetr, _legPBdepth)
             if array.size(_seqRetr) > 5
                 array.shift(_seqRetr)
+            array.push(_lifeSeq, _life)
+            if array.size(_lifeSeq) > 5
+                array.shift(_lifeSeq)
         _legX := _ownDirT == 1 ? high : low
         _legPBdepth := 0.0
     else
@@ -1587,6 +1593,16 @@ if _ownDirT != 0 and not na(_ownOrig)
         _legPBdepth := math.max(_legPBdepth, _pbd)
 string _narrState = _narrative >= 65.0 ? "STRENGTHENING" : _narrative <= 35.0 ? "WEAKENING" : "HOLDING"
 bool   _converging = array.size(_seqRetr) >= 2 and array.get(_seqRetr, array.size(_seqRetr) - 1) < array.get(_seqRetr, array.size(_seqRetr) - 2)
+// ── F72 — CHAIN VITALITY (second score; life is unchanged) — is LIFE decaying
+//   ACROSS successive curves? Separates three scopes of danger:
+//     • current CURVE in trouble (life low) but the chain still intact
+//     • current CHAIN weakening (life trending down over recent curves)
+//     • the WHOLE chain decaying (life bled out across the broader lineage)
+//   _chainVitality resets with the lineage; _wholeChainLife persists across resets.
+_wholeChainLife := _wholeChainLife + 0.02 * (_life - _wholeChainLife)
+float  _chainVitality = array.size(_lifeSeq) >= 2 ? math.max(0.0, math.min(100.0, 50.0 + (array.get(_lifeSeq, array.size(_lifeSeq) - 1) - array.get(_lifeSeq, 0)))) : _wholeChainLife
+string _chainScope = _life >= 50.0 ? "healthy" : _chainVitality >= 50.0 ? "CURVE only · chain intact" : _wholeChainLife >= 45.0 ? "CHAIN weakening" : "WHOLE CHAIN decaying"
+color  _chainCol = _chainScope == "healthy" ? #34d399 : _chainScope == "CURVE only · chain intact" ? #38bdf8 : _chainScope == "CHAIN weakening" ? #fbbf24 : #fb7185
 
 // ── Drawing objects + hoisted state for global alerts ────────────────────────
 var array<line>  net_lines = array.new<line>()
@@ -2355,7 +2371,7 @@ if barstate.islast and showCurve
 if barstate.islast and showCurve
     var table treeT = na
     if na(treeT)
-        treeT := table.new(position.middle_center, 2, 13, bgcolor = color.new(#0a0e27, 4), frame_color = color.new(#22d3ee, 25), frame_width = 2, border_width = 0)
+        treeT := table.new(position.middle_center, 2, 14, bgcolor = color.new(#0a0e27, 4), frame_color = color.new(#22d3ee, 25), frame_width = 2, border_width = 0)
     string _odTx = _ownDirT == 1 ? "▲ BULL" : _ownDirT == -1 ? "▼ BEAR" : "○ —"
     bool   _phaseAgree = _ownState != "—" and (str.contains(_ownState, "Expansion") == str.contains(ie1a_currentPhase, "Expansion")) and (str.contains(_ownState, "Retracement") == str.contains(ie1a_currentPhase, "Retracement"))
     string _ownLoc = (na(_ownOrig) or na(_ownExt)) ? "—" : str.tostring(math.round_to_mintick(_ownOrig)) + " → " + str.tostring(math.round_to_mintick(_ownExt)) + " → " + str.tostring(math.round_to_mintick(close))
@@ -2396,6 +2412,9 @@ if barstate.islast and showCurve
     table.cell(treeT, 1, 11, _seqTx == "" ? "forming…" : _seqTx, text_color = #fde68a, text_size = size.small, text_halign = text.align_left)
     table.cell(treeT, 0, 12, "Chain · last vote", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
     table.cell(treeT, 1, 12, (array.size(_seqRetr) < 2 ? "forming" : (_converging ? "CONVERGING (story builds)" : "DIVERGING (story fades)")) + " · " + _lastVote, text_color = array.size(_seqRetr) < 2 ? #94a3b8 : (_converging ? #34d399 : #fb7185), text_size = size.small, text_halign = text.align_left)
+    // ── second score: is life decaying across successive curves? (scope of danger) ──
+    table.cell(treeT, 0, 13, "Chain vitality · scope", text_color = #94a3b8, text_size = size.small, text_halign = text.align_left)
+    table.cell(treeT, 1, 13, str.tostring(math.round(_chainVitality)) + " ch / " + str.tostring(math.round(_wholeChainLife)) + " whole · " + _chainScope, text_color = _chainCol, text_size = size.small, text_halign = text.align_left)
 
 // ── F72 — plot the CURVE TREE on the chart: each live curve as origin→extreme,
 //    coloured by direction, dashed when recursive (depth>0), tagged with its
