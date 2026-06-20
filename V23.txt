@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v26", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v27", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1466,6 +1466,7 @@ var array<line>  part_lines = array.new<line>()
 var array<label> part_lbls  = array.new<label>()
 var array<line>  tree_lines = array.new<line>()
 var array<label> tree_lbls  = array.new<label>()
+var array<box>   tree_boxes = array.new<box>()
 var box          fezBox    = na
 var label        vLbl      = na
 var int    gMaster   = 0
@@ -2225,23 +2226,28 @@ if barstate.islast and showTree
         for _i = 0 to array.size(tree_lbls) - 1
             label.delete(array.get(tree_lbls, _i))
         array.clear(tree_lbls)
+    if array.size(tree_boxes) > 0
+        for _i = 0 to array.size(tree_boxes) - 1
+            box.delete(array.get(tree_boxes, _i))
+        array.clear(tree_boxes)
     if array.size(_tree) > 0
         for _ti = 0 to array.size(_tree) - 1
             CurveNode _tn = array.get(_tree, _ti)
             if _tn.alive and not na(_tn.origin) and not na(_tn.extreme)
                 color _cc = _tn.dir == 1 ? #34d399 : #fb7185
                 int   _x0 = math.max(_tn.bar, bar_index - 300)
-                int   _transp = math.min(70, 18 + _tn.depth * 18)
-                // the curve's displacement vector: origin (birth) → current extreme
-                line _ln = line.new(_x0, _tn.origin, bar_index, _tn.extreme, color = color.new(_cc, _transp), width = _tn.depth == 0 ? 3 : 2, style = _tn.depth == 0 ? line.style_solid : line.style_dashed)
-                array.push(tree_lines, _ln)
-                // origin (birth) marker — faint horizontal ray
-                array.push(tree_lines, line.new(_x0, _tn.origin, bar_index, _tn.origin, color = color.new(_cc, 78), width = 1, style = line.style_dotted))
-                // tag at the extreme: depth · emergent phase · price
-                string _tag = "C" + str.tostring(_tn.depth) + (_tn.dir == 1 ? " ▲ " : " ▼ ") + _tn.state + "  " + str.tostring(math.round_to_mintick(_tn.extreme)) + "  · e" + str.tostring(math.round(_tn.energy))
-                array.push(tree_lbls, label.new(bar_index, _tn.extreme, _tag, style = _tn.dir == 1 ? label.style_label_lower_left : label.style_label_upper_left, color = color.new(_cc, math.min(60, 12 + _tn.depth * 16)), textcolor = #04130c, size = _tn.depth == 0 ? size.small : size.tiny))
-                // origin price tag
-                array.push(tree_lbls, label.new(_x0, _tn.origin, "origin " + str.tostring(math.round_to_mintick(_tn.origin)), style = label.style_label_right, color = color.new(_cc, 85), textcolor = _cc, size = size.tiny))
+                int   _xr = bar_index + 5
+                float _hi = math.max(_tn.origin, _tn.extreme)
+                float _lo = math.min(_tn.origin, _tn.extreme)
+                // the curve's ENVIRONMENT (Principle 6) — its territory from birth → now
+                array.push(tree_boxes, box.new(_x0, _hi, _xr, _lo, border_color = color.new(_cc, _tn.depth == 0 ? 55 : 35), border_width = 1, border_style = _tn.depth == 0 ? line.style_solid : line.style_dashed, bgcolor = color.new(_cc, _tn.depth == 0 ? 94 : 90)))
+                // origin / invalidation level (birth) — dotted
+                array.push(tree_lines, line.new(_x0, _tn.origin, _xr, _tn.origin, color = color.new(_cc, 55), width = 1, style = line.style_dotted))
+                // extreme (current reach) level — solid for root, dashed for recursive child
+                array.push(tree_lines, line.new(_x0, _tn.extreme, _xr, _tn.extreme, color = color.new(_cc, 20), width = _tn.depth == 0 ? 2 : 1, style = _tn.depth == 0 ? line.style_solid : line.style_dashed))
+                // single tag at the extreme: depth · emergent phase · price · energy
+                string _tag = "C" + str.tostring(_tn.depth) + (_tn.dir == 1 ? " ▲ " : " ▼ ") + _tn.state + "  " + str.tostring(math.round_to_mintick(_tn.extreme)) + " · e" + str.tostring(math.round(_tn.energy))
+                array.push(tree_lbls, label.new(_xr, _tn.extreme, _tag, style = label.style_label_left, color = color.new(_cc, math.min(55, 12 + _tn.depth * 16)), textcolor = #04130c, size = _tn.depth == 0 ? size.small : size.tiny))
 
 // ── Alerts (global scope) ─────────────────────────────────────────────────────
 alertcondition(gAction == "ATTACK" and gMaster == 1,  "Senseei ATTACK Long",  "Master Senseei: ATTACK long")
