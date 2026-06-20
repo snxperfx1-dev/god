@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v43", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v44", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -1552,10 +1552,17 @@ string _cpTrend = _cmpTighten > 3.0 ? "↑ tightening" : _cmpTighten < -3.0 ? "�
 //   compression broadens — at which point ownership has transferred and the correct
 //   action flips to the COUNTER side. This is the hold-vs-abandon call, every bar.
 bool  _recursionComplete = _curveBudgetDepth > 0 and _treeDepth >= _curveBudgetDepth
-float _life = math.max(0.0, math.min(100.0, _cpForce * 0.45 + nz(gCurve.eRes, 0.0) * 0.30 + (_cmpTighten > 0.0 ? 12.0 : 0.0) - (_recursionComplete ? 25.0 : 0.0) - (_cpState == "LEAKING" ? 20.0 : 0.0) + 10.0))
+// PROGRESS guard — price ATTACKING / breaking the curve's extreme (a new extreme being
+// built) is the campaign doing exactly what it should. During that expansion, low
+// compression / a "broadening" pullback is STRENGTH, not death — so don't penalise it,
+// and add a continuation boost. Fixes the life score wrongly flipping on breakouts.
+bool  _attacking   = _ownDirT == 1 ? high >= nz(_ownExt, high) : _ownDirT == -1 ? low <= nz(_ownExt, low) : false
+bool  _trendImp    = (_ownDirT == 1 and bullImpulse) or (_ownDirT == -1 and bearImpulse)
+bool  _progressing = _attacking or _trendImp
+float _life = math.max(0.0, math.min(100.0, _cpForce * 0.45 + nz(gCurve.eRes, 0.0) * 0.30 + (_cmpTighten > 0.0 ? 12.0 : 0.0) - (_recursionComplete and not _progressing ? 25.0 : 0.0) - (_cpState == "LEAKING" and not _progressing ? 20.0 : 0.0) + (_progressing ? 28.0 : 0.0) + 10.0))
 string _aliveCounter = _ownDirT == 1 ? "▼ SHORT" : "▲ LONG"
-string _aliveTx  = _life >= 60.0 ? "● ALIVE · HOLD" : _life <= 32.0 ? "✕ DEAD · FLIP " + _aliveCounter : "◐ WEAKENING · MANAGE"
-color  _aliveCol = _life >= 60.0 ? #34d399 : _life <= 32.0 ? #fb7185 : #fbbf24
+string _aliveTx  = _progressing and _life >= 45.0 ? "▲ ALIVE · ATTACKING EXTREME" : _life >= 60.0 ? "● ALIVE · HOLD" : _life <= 32.0 ? "✕ DEAD · FLIP " + _aliveCounter : "◐ WEAKENING · MANAGE"
+color  _aliveCol = (_progressing and _life >= 45.0) or _life >= 60.0 ? #34d399 : _life <= 32.0 ? #fb7185 : #fbbf24
 // migrated ownership band — 0.5 / 0.618 retracement of the owner curve's leg
 float _mig50  = (na(_ownOrig) or na(_ownExt)) ? na : _ownExt + 0.5   * (_ownOrig - _ownExt)
 float _mig618 = (na(_ownOrig) or na(_ownExt)) ? na : _ownExt + 0.618 * (_ownOrig - _ownExt)
