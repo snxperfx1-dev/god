@@ -11,7 +11,7 @@
 // For the FULL multi-timeframe network, run it on M1–M15 (Pine builds the network
 // from the chart timeframe upward).
 // ═══════════════════════════════════════════════════════════════════════════════
-indicator("F16 Raptor v38", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
+indicator("F16 Raptor v39", overlay = true, max_lines_count = 500, max_labels_count = 500, max_boxes_count = 500)
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 string GRP = "Master Senseei"
@@ -2282,10 +2282,18 @@ if barstate.islast and showCurve
 // F72 — CURVE STACK (own islast block) — the nested curve family, parent (top) to
 // child (bottom), and which curve currently owns the campaign.
 // ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// F72 — MULTI-TIMEFRAME CURVE MAP (rebuilt CURVE STACK) — every timeframe's curve
+// with origin→extreme→now coordinates + how each nests in the timeframe above.
+// ══════════════════════════════════════════════════════════════════════════════
+f_tfExt(int _d, float _sh, float _sl) => _d == 1 ? _sh : _d == -1 ? _sl : na
+f_tfCoord(float _o, float _x) => (na(_o) ? "—" : str.tostring(math.round_to_mintick(_o))) + "→" + (na(_x) ? "—" : str.tostring(math.round_to_mintick(_x))) + "→" + str.tostring(math.round_to_mintick(close))
+f_tfRel(int _d, int _pd) => (_d == 0 or _pd == 0) ? "—" : _d == _pd ? "↑ align" : "✗ counter"
+f_dirArrow(int _d) => _d == 1 ? "▲" : _d == -1 ? "▼" : "—"
 if barstate.islast and showCurve
     var table stackT = na
     if na(stackT)
-        stackT := table.new(position.top_center, 2, 8, bgcolor = color.new(#0a0e27, 4), frame_color = color.new(#22d3ee, 25), frame_width = 2, border_width = 0)
+        stackT := table.new(position.top_center, 4, 9, bgcolor = color.new(#0a0e27, 4), frame_color = color.new(#22d3ee, 30), frame_width = 1, border_width = 1)
     string _ownerL = (nz(se240_wp) > 10 and nz(se240_wp) < 90) ? _wl6 : (nz(se60_wp) > 10 and nz(se60_wp) < 90) ? _wl5 : (nz(se15_wp) > 10 and nz(se15_wp) < 90) ? _wl4 : (nz(se5_wp) > 10 and nz(se5_wp) < 90) ? _wl3 : (nz(se3_wp) > 10 and nz(se3_wp) < 90) ? _wl2 : _wl1
     // ── OWNERSHIP MERGE (Principle 9) — does the child curve respect the parent FU
     //    and collapse back into it (Camp B → Camp A, parent campaign NOT finished),
@@ -2302,22 +2310,44 @@ if barstate.islast and showCurve
     bool   _transferred = _counterChild and _brokePar
     string _ownStateTx  = _transferred ? "TRANSFERRED · new campaign" : _merged ? "MERGED → parent (B→A)" : _counterChild ? "child recursion active" : "aligned with parent"
     color  _ownStateCol = _transferred ? #fb7185 : _merged ? #34d399 : _counterChild ? #fbbf24 : #38bdf8
-    table.cell(stackT, 0, 0, "◤ CURVE STACK ▌ " + _liveDot, text_color = #d7faff, text_size = size.normal, text_halign = text.align_left, bgcolor = color.new(#0c4a6e, 12))
-    table.cell(stackT, 1, 0, "owns: " + _ownerL, text_color = #5eead4, text_size = size.normal, bgcolor = color.new(#0c4a6e, 12))
-    table.cell(stackT, 0, 1, _wl6 + "  (parent)", text_color = c_r6.dir == 1 ? #34d399 : c_r6.dir == -1 ? #fb7185 : #94a3b8, text_size = size.small, text_halign = text.align_left)
-    table.cell(stackT, 1, 1, (c_r6.dir == 1 ? "▲ " : c_r6.dir == -1 ? "▼ " : "— ") + f_gauge(c_r6.maturity) + " " + str.tostring(math.round(c_r6.maturity)) + "%  cvx " + str.tostring(math.round(c_r6.convex)), text_color = #cbd5e1, text_size = size.small, text_halign = text.align_left)
-    table.cell(stackT, 0, 2, _wl5, text_color = c_r5.dir == 1 ? #34d399 : c_r5.dir == -1 ? #fb7185 : #94a3b8, text_size = size.small, text_halign = text.align_left)
-    table.cell(stackT, 1, 2, (c_r5.dir == 1 ? "▲ " : c_r5.dir == -1 ? "▼ " : "— ") + f_gauge(c_r5.maturity) + " " + str.tostring(math.round(c_r5.maturity)) + "%  cvx " + str.tostring(math.round(c_r5.convex)), text_color = #cbd5e1, text_size = size.small, text_halign = text.align_left)
-    table.cell(stackT, 0, 3, _wl4, text_color = c_r4.dir == 1 ? #34d399 : c_r4.dir == -1 ? #fb7185 : #94a3b8, text_size = size.small, text_halign = text.align_left)
-    table.cell(stackT, 1, 3, (c_r4.dir == 1 ? "▲ " : c_r4.dir == -1 ? "▼ " : "— ") + f_gauge(c_r4.maturity) + " " + str.tostring(math.round(c_r4.maturity)) + "%  cvx " + str.tostring(math.round(c_r4.convex)), text_color = #cbd5e1, text_size = size.small, text_halign = text.align_left)
-    table.cell(stackT, 0, 4, _wl3 + "  (chart)", text_color = c_r3.dir == 1 ? #34d399 : c_r3.dir == -1 ? #fb7185 : #94a3b8, text_size = size.small, text_halign = text.align_left)
-    table.cell(stackT, 1, 4, (c_r3.dir == 1 ? "▲ " : c_r3.dir == -1 ? "▼ " : "— ") + f_gauge(c_r3.maturity) + " " + str.tostring(math.round(c_r3.maturity)) + "%  cvx " + str.tostring(math.round(c_r3.convex)), text_color = #e2e8f0, text_size = size.small, text_halign = text.align_left)
-    table.cell(stackT, 0, 5, _wl2, text_color = c_r2.dir == 1 ? #34d399 : c_r2.dir == -1 ? #fb7185 : #94a3b8, text_size = size.small, text_halign = text.align_left)
-    table.cell(stackT, 1, 5, (c_r2.dir == 1 ? "▲ " : c_r2.dir == -1 ? "▼ " : "— ") + f_gauge(c_r2.maturity) + " " + str.tostring(math.round(c_r2.maturity)) + "%  cvx " + str.tostring(math.round(c_r2.convex)), text_color = #cbd5e1, text_size = size.small, text_halign = text.align_left)
-    table.cell(stackT, 0, 6, _wl1 + "  (child)", text_color = c_r1.dir == 1 ? #34d399 : c_r1.dir == -1 ? #fb7185 : #94a3b8, text_size = size.small, text_halign = text.align_left)
-    table.cell(stackT, 1, 6, (c_r1.dir == 1 ? "▲ " : c_r1.dir == -1 ? "▼ " : "— ") + f_gauge(c_r1.maturity) + " " + str.tostring(math.round(c_r1.maturity)) + "%  cvx " + str.tostring(math.round(c_r1.convex)), text_color = #cbd5e1, text_size = size.small, text_halign = text.align_left)
-    table.cell(stackT, 0, 7, "Ownership", text_color = #5fd0ff, text_size = size.small, text_halign = text.align_left)
-    table.cell(stackT, 1, 7, _ownStateTx, text_color = _ownStateCol, text_size = size.small, text_halign = text.align_left)
+    int _alignN = (m1_dir == _ownDirT ? 1 : 0) + (l3_dir == _ownDirT ? 1 : 0) + (l0_dir == _ownDirT ? 1 : 0) + (l1_dir == _ownDirT ? 1 : 0) + (l2_dir == _ownDirT ? 1 : 0) + (l4_dir == _ownDirT ? 1 : 0)
+    string _mtfStory = _ownDirT == 0 ? "no dominant owner" : _alignN >= 5 ? "all TFs aligned → strong continuation" : _alignN >= 4 ? "HTFs lead · LTFs following" : _alignN <= 2 ? "LTFs counter HTF → pullback / transition" : "mixed → rotation"
+    table.cell(stackT, 0, 0, "◤ MTF CURVE MAP " + _liveDot, text_color = #d7faff, text_size = size.small, text_halign = text.align_left, bgcolor = color.new(#0c4a6e, 12))
+    table.cell(stackT, 1, 0, "dir · phase", text_color = #94a3b8, text_size = size.small, bgcolor = color.new(#0c4a6e, 12))
+    table.cell(stackT, 2, 0, "origin → extreme → now", text_color = #94a3b8, text_size = size.small, bgcolor = color.new(#0c4a6e, 12))
+    table.cell(stackT, 3, 0, "vs HTF", text_color = #94a3b8, text_size = size.small, bgcolor = color.new(#0c4a6e, 12))
+    table.cell(stackT, 0, 1, _wl6 + " (parent)", text_color = l4_dir == 1 ? #34d399 : l4_dir == -1 ? #fb7185 : #94a3b8, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 1, 1, f_dirArrow(l4_dir) + " " + f_famS(int(nz(se240_ph))), text_color = #cbd5e1, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 2, 1, f_tfCoord(se240_inv, f_tfExt(l4_dir, se240_sh, se240_sl)), text_color = #fde68a, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 3, 1, "—", text_color = #475569, text_size = size.small)
+    table.cell(stackT, 0, 2, _wl5, text_color = l2_dir == 1 ? #34d399 : l2_dir == -1 ? #fb7185 : #94a3b8, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 1, 2, f_dirArrow(l2_dir) + " " + f_famS(int(nz(se60_ph))), text_color = #cbd5e1, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 2, 2, f_tfCoord(se60_inv, f_tfExt(l2_dir, se60_sh, se60_sl)), text_color = #fde68a, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 3, 2, f_tfRel(l2_dir, l4_dir), text_color = l2_dir == l4_dir ? #34d399 : #fb7185, text_size = size.small)
+    table.cell(stackT, 0, 3, _wl4, text_color = l1_dir == 1 ? #34d399 : l1_dir == -1 ? #fb7185 : #94a3b8, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 1, 3, f_dirArrow(l1_dir) + " " + f_famS(int(nz(se15_ph))), text_color = #cbd5e1, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 2, 3, f_tfCoord(se15_inv, f_tfExt(l1_dir, se15_sh, se15_sl)), text_color = #fde68a, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 3, 3, f_tfRel(l1_dir, l2_dir), text_color = l1_dir == l2_dir ? #34d399 : #fb7185, text_size = size.small)
+    table.cell(stackT, 0, 4, _wl3 + " (chart)", text_color = l0_dir == 1 ? #34d399 : l0_dir == -1 ? #fb7185 : #94a3b8, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 1, 4, f_dirArrow(l0_dir) + " " + f_famS(int(nz(se5_ph))), text_color = #e2e8f0, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 2, 4, f_tfCoord(se5_inv, f_tfExt(l0_dir, se5_sh, se5_sl)), text_color = #fde68a, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 3, 4, f_tfRel(l0_dir, l1_dir), text_color = l0_dir == l1_dir ? #34d399 : #fb7185, text_size = size.small)
+    table.cell(stackT, 0, 5, _wl2, text_color = l3_dir == 1 ? #34d399 : l3_dir == -1 ? #fb7185 : #94a3b8, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 1, 5, f_dirArrow(l3_dir) + " " + f_famS(int(nz(se3_ph))), text_color = #cbd5e1, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 2, 5, f_tfCoord(se3_inv, f_tfExt(l3_dir, se3_sh, se3_sl)), text_color = #fde68a, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 3, 5, f_tfRel(l3_dir, l0_dir), text_color = l3_dir == l0_dir ? #34d399 : #fb7185, text_size = size.small)
+    table.cell(stackT, 0, 6, _wl1 + " (child)", text_color = m1_dir == 1 ? #34d399 : m1_dir == -1 ? #fb7185 : #94a3b8, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 1, 6, f_dirArrow(m1_dir) + " " + f_famS(int(nz(se1_ph))), text_color = #cbd5e1, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 2, 6, f_tfCoord(se1_inv, f_tfExt(m1_dir, se1_sh, se1_sl)), text_color = #fde68a, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 3, 6, f_tfRel(m1_dir, l3_dir), text_color = m1_dir == l3_dir ? #34d399 : #fb7185, text_size = size.small)
+    table.cell(stackT, 0, 7, "Cross-TF story", text_color = #5fd0ff, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 1, 7, _mtfStory, text_color = _alignN >= 4 ? #34d399 : _alignN <= 2 ? #fb7185 : #fbbf24, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 2, 7, "aligned " + str.tostring(_alignN) + "/6", text_color = #e2e8f0, text_size = size.small)
+    table.cell(stackT, 3, 7, "", text_size = size.small)
+    table.cell(stackT, 0, 8, "Ownership", text_color = #5fd0ff, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 1, 8, _ownStateTx, text_color = _ownStateCol, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 2, 8, "owns: " + _ownerL, text_color = #5eead4, text_size = size.small, text_halign = text.align_left)
+    table.cell(stackT, 3, 8, "", text_size = size.small)
 
 // ══════════════════════════════════════════════════════════════════════════════
 // F72 — CURVE TREE readout (own islast block) — the event-generated recursion
